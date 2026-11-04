@@ -122,7 +122,7 @@
 - [x] 目录结构、`config.py`
 - [x] 第一个工具 `update_profile`
 
-### ▶ 阶段 1：会用工具
+### ✅ 阶段 1：会用工具
 
 - [x] 工具循环写成 `run_agent()`，`chat.py` 调用它
 - [x] 说"叫你小牛"，它自己调用 `update_profile` 写进 `AGENT.md`
@@ -130,11 +130,11 @@
 - [x] 工具登记处：多个工具统一管理
 - [x] 加简单工具：`get_time`、`read_file`、`list_file`、`edit_file`
 - [x] 工作空间搬到项目外，新增 `templates/`；代码上传 GitHub
-- [ ] `write_file`：替代 `update_profile`
+- [x] `write_file`：替代 `update_profile`
 
 对照 CowAgent：`agent/protocol/agent_stream.py` 的 `run_stream`
 
-### 阶段 2：安全
+### ▶ 阶段 2：安全
 
 - [x] 权限检查：只能动 workspace 里的文件，路径先规范化再判断（`agents/tools/guard.py`）
 - [ ] 审批门：危险操作先问 y/n

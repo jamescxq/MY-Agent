@@ -1,6 +1,6 @@
 import anthropic
 from config import MODEL
-from agents.tools import UPDATE_PROFILE_TOOL, TOOL_FUNCTIONS
+from agents.tools import TOOL_FUNCTIONS
 
 client = anthropic.Anthropic()
 MAX_STEPS = 10
