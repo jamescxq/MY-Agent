@@ -32,17 +32,33 @@
        └────────────┘  └────────────┘
                  │
                  ▼
-         workspace（全部进 git）
-         ├─ AGENT.md / USER.md / RULE.md   档案
+         workspace（项目外，不进 GitHub）
+         ├─ AGENT.md / USER.md             档案
          ├─ MEMORY.md                      长期记忆，每晚"做梦"整理
          ├─ memory/YYYY-MM-DD.md           每日记录
-         └─ agents/*.md                    厨师模板
+         └─ skills/*/SKILL.md              小牛自己写的 skill
 ```
 
 一句话：**接待的人不干活，干活的人不接待。**
 
 - 主循环、前台、每个厨师，跑的都是同一个 `run_agent()`，只是配置不同。
 - 所有输入（用户消息、飞书消息、定时提醒、厨师汇报）都是事件，进同一个队列。
+
+### 文件放在哪
+
+**代码一样，记忆不同。** 大家共用同一份代码，每个人的 Agent 有自己的记忆，所以表现不一样。
+
+| 位置 | 放什么 | 谁来改 | 传 GitHub |
+|---|---|---|---|
+| `MY-Agent/`（项目） | 代码、`docs/`、`requirements.txt`、`.env.example` | 开发者 | 传 |
+| `MY-Agent/templates/` | `RULE.md`（直接读取）；`AGENT.md`、`USER.md`、`MEMORY.md`、`BOOTSTRAP.md`（空白模板）；`agents/*.md`（厨师模板） | 开发者 | 传 |
+| `MY-Agent-workspace/`（项目外） | 自己的 `AGENT.md`、`USER.md`、`MEMORY.md`，以及运行时产生的文件 | Agent 自己 | 不传 |
+| `MY-Agent/.env` | Key、`MODEL`、`ANTHROPIC_BASE_URL` | 每个人自己 | 不传 |
+
+- `RULE.md` 是公告栏，放在 `templates/`，只进提示词，Agent 读不到也改不了这个文件。
+- 第一次运行时，`ensure_workspace()` 把空白模板复制到工作空间，已有的文件不覆盖。
+- 换服务商不改代码：Anthropic SDK 自己读 Key 和 `ANTHROPIC_BASE_URL`，`config.py` 读 `MODEL`。只支持有 Anthropic 兼容接口的服务商；遇到不兼容的再照 CowAgent 写翻译层。
+- GitHub 只推 `main`。本地的 `old-history` 分支含有旧的个人档案，**绝不推送，也不用 `git push --all`**。
 
 ---
 
@@ -56,7 +72,7 @@
 | 前台不干活 | Super-agent | 前台的工具里没有读写文件、执行命令，只有"派单"和"回复" |
 | 闲聊前台直接回 | 解决"链路太慢"的问题 | "你好"、"谢谢"这种不派单，前台直接回。只有真正要干活才派单，避免每句话都多走一圈 |
 | 前台小模型，厨师大模型 | Super-agent、Claude Code | `config.py` 里分开配 `ROUTER_MODEL` 和 `WORKER_MODEL` |
-| 厨师模板写成 md 文件 | Claude Code、CowAgent | `workspace/agents/*.md`，开头写 name、description、tools、model，正文是提示词。加一种厨师，只要加一个文件 |
+| 厨师模板写成 md 文件 | Claude Code、CowAgent | `templates/agents/*.md`，开头写 name、description、tools、model，正文是提示词。加一种厨师，只要加一个文件 |
 | 厨师只返回总结，但要带证据 | Claude Code、CowAgent、Hyra 2.0 | 中间过程不回传，避免撑爆前台的上下文。总结里必须附上证据（改了哪个文件、命令输出、结果），不能只说"做完了" |
 | 派单要写完整任务说明 | CowAgent 的 `_build_brief` | 派单工具强制要求填"任务"和"背景"两个参数 |
 | 用工具派单，不用转交 | OpenAI 的 `as_tool` | 前台始终掌控对话，用户永远只跟前台说话。OpenAI 的 `handoffs` 转交方式不用 |
@@ -111,14 +127,16 @@
 - [x] 工具循环写成 `run_agent()`，`chat.py` 调用它
 - [x] 说"叫你小牛"，它自己调用 `update_profile` 写进 `AGENT.md`
 - [x] 初始化完成后删除 `BOOTSTRAP.md`，重启后直接认识用户
-- [ ] 工具登记处：多个工具统一管理
-- [ ] 加 2～3 个简单工具：查时间、读文件
+- [x] 工具登记处：多个工具统一管理
+- [x] 加简单工具：`get_time`、`read_file`、`list_file`、`edit_file`
+- [x] 工作空间搬到项目外，新增 `templates/`；代码上传 GitHub
+- [ ] `write_file`：替代 `update_profile`
 
 对照 CowAgent：`agent/protocol/agent_stream.py` 的 `run_stream`
 
 ### 阶段 2：安全
 
-- [ ] 权限检查：只能动 workspace 里的文件，路径先规范化再判断
+- [x] 权限检查：只能动 workspace 里的文件，路径先规范化再判断（`agents/tools/guard.py`）
 - [ ] 审批门：危险操作先问 y/n
 - [ ] 最大步数、工具出错返回文字而不是崩溃
 - [ ] 凭据不进上下文
@@ -131,7 +149,8 @@
 - [ ] 每轮对话追加到 `memory/YYYY-MM-DD.md`
 - [ ] `MEMORY.md` 拼进提示词
 - [ ] 上下文太长时裁剪旧对话；工具结果截断 + 续读入口
-- [ ] "做梦"：每晚读当天记录，改写 `MEMORY.md`，自动 git 提交
+- [ ] 工作空间单独 `git init` 做本地备份，不设远程、不推送
+- [ ] "做梦"：每晚读当天记录，改写 `MEMORY.md`，自动提交到工作空间的本地 git
 - [ ] Skill：`workspace/skills/*/SKILL.md`，builder 只拼名字和说明，用时再读全文
 - [ ] 自己写 skill：做成一件事后把经验写成新 skill，先给用户看再保存
 - [ ] 经验分级：`MEMORY.md` 里的经验标上"观察 / 已验证 / 约定"，做梦时升级；升为"约定"要用户点头
@@ -140,7 +159,7 @@
 
 ### 阶段 4：同步版前台 + 厨师
 
-- [ ] `workspace/agents/*.md` 厨师模板（先做"通用"和"查资料"两种）
+- [ ] `templates/agents/*.md` 厨师模板（先做"通用"和"查资料"两种）
 - [ ] 派单工具：参数为 种类、任务、背景
 - [ ] 厨师汇报格式：总结 + 证据（改动的文件、关键输出）
 - [ ] 前台只有派单、回复等轻量工具；闲聊直接回
@@ -188,6 +207,6 @@
 
 1. **每一步都能跑**：每次只加一样东西，跑通、提交，再加下一样。
 2. **规则写在代码里，不只写在提示词里**：提示词是建议，代码才是保证。
-3. **安全优先**：key 只放 `.env`；workspace 全部进 git；危险操作必须经过用户同意。
+3. **安全优先**：key 只放 `.env`；个人档案只放项目外的 workspace，绝不进 GitHub；危险操作必须经过用户同意。
 4. **能用代码就不用 LLM**：LLM 调用是整条链路里最慢、最贵的部分。
 5. **对照 CowAgent 学**：每完成一个阶段，回去读 CowAgent 对应的源码，看看人家多考虑了什么。
