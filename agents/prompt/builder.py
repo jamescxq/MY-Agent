@@ -37,5 +37,33 @@ def build_system_prompt():
         parts.append(f'<file name = "{name}">\n{text}\n</file>')
     return "\n\n".join(parts)
 
+# 读取用户取给模型的名字
+def get_agent_name():
+    default_name = "无嗣"
+    path = WORKSPACE / "AGENT.md"
+
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeError):
+        return default_name
+
+    prefix = "- **名字**:"
+
+    for line in text.splitlines():
+        # 去掉首尾空白，同时兼容中文冒号
+        line = line.strip().replace("：", ":", 1)
+
+        if line.startswith(prefix):
+            # 取出冒号后面的名字
+            name = line[len(prefix):].strip()
+
+            # 还没填写名字时，使用默认名字
+            if not name or name == PLACEHOLDER:
+                return default_name
+
+            return name
+
+    return default_name
+
 if __name__ == "__main__":
     print(build_system_prompt())

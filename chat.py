@@ -1,6 +1,6 @@
 import anthropic
 
-from agents.prompt.builder import build_system_prompt
+from agents.prompt.builder import build_system_prompt, get_agent_name
 from agents.loop import run_agent
 from agents.tools import TOOLS
 
@@ -40,6 +40,7 @@ while True:
             "content": user_input,
         })
     try:
+        system_prompt = build_system_prompt()
         reply = run_agent(system_prompt, TOOLS, messages)
 
     except anthropic.APIConnectionError:
@@ -67,7 +68,7 @@ while True:
         pending_retry = True
     else:
         pending_retry = False
-        print("小牛：", reply)
+        print(f"{get_agent_name()}：", reply)
     if pending_retry:
             print(
                 "我已经记住了这次的对话了。"
