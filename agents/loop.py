@@ -32,7 +32,10 @@ def run_agent(system, tools, messages):
                 continue
             print("【调试】调用工具:", block.name)
             if block.name in allowed:
-                output = TOOL_FUNCTIONS[block.name](**block.input)
+                try:
+                    output = TOOL_FUNCTIONS[block.name](**block.input)
+                except Exception as e:
+                    output = f"工具 {block.name} 出错：{e}。请换个办法，或告诉用户。"
             else:
                 output = f"拒绝:没有给你 {block.name} 这个工具"
 
