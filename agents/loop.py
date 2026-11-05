@@ -1,6 +1,7 @@
 import anthropic
 from config import MODEL
 from agents.tools import TOOL_FUNCTIONS
+from agents.permission import need_approval, ask_user
 
 client = anthropic.Anthropic(
     max_retries=2,
@@ -19,24 +20,16 @@ def execute_tool(block,allowed):
         result["is_error"] = True
         return result
     try:
-        result["content"] = TOOL_FUNCTIONS[block.name](**block.input)
-    except FileNotFoundError:
-        result["content"] = f"抱歉，我没找到文件，你看看是不是文件路径错了"
-        result["is_error"] = True
-    except PermissionError:
-        result["content"] = f"抱歉，我没有使用这个文件的权限，需要你亲自操作"
-        result["is_error"] = True
-    except UnicodeError:
-        result["content"] = f"抱歉，这个文件编码我不懂，我目前只能处理UTF-8 文本"
-        result["is_error"] = True
-    except (TypeError, ValueError):
-        result["content"] = "抱歉，工具参数或数据不正确，你可以检查参数名称、类型和值。"
-        result["is_error"] = True
+        if need_approval(block.name, block.input) and not ask_user(block.name, block.input):
+            result["content"] = "用户拒绝了这个操作。不要重试，先问用户怎么做"
+            result["is_error"] = True
+        else:
+            result["content"] = TOOL_FUNCTIONS[block.name](**block.input)
     except Exception as exc:
-        print(f"这个工具{block.name}坏了！: {type(exc).__name__}")
-        result["content"] = "我的工具坏了，需要维修！！！"
+        result["content"] = f"工具 {block.name} 出错（{type(exc).__name__}）：{exc}。请换个办法，或告诉用户。"
         result["is_error"] = True
     return result
+
 def run_agent(system, tools, messages):
     for step in range(MAX_STEPS):
         response = client.messages.create(
