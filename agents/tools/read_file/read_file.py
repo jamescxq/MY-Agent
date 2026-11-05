@@ -23,7 +23,7 @@ def read_file(path):
     if target is None:
         return f"拒绝：{path} 不在WORKSPACE里"
     if not target.is_file():
-        return f"找不到文件：{path}"
+        return f"找不到文件：{path}，可以先用 list_file 看看目录里有什么"
 
     text = target.read_text(encoding="utf-8")
     if len(text) > MAX_CHARS:

@@ -36,7 +36,8 @@ def edit_file(path, old_text, new_text):
     if target.name in PROTECTED:
         return f"拒绝：{path} 只能由 James 修改"
     if not target.is_file():
-        return f"找不到文件：{path}"
+        return f"找不到文件：{path}，可以先用 list_file 看看目录里有什么"
+
 
     text = target.read_text(encoding="utf-8")
 
