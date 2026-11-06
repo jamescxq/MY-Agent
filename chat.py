@@ -5,7 +5,6 @@ from agents.loop import run_agent
 from agents.tools import TOOLS
 
 messages = []
-system_prompt = build_system_prompt()
 
 # 是否存在因接口异常而中断的请求
 pending_retry = False
@@ -70,6 +69,4 @@ while True:
         pending_retry = False
         print(f"{get_agent_name()}：", reply)
     if pending_retry:
-            print(
-                "我已经记住了这次的对话了。"
-            )
+        print("对话还在，输入 /retry 可以重试。")

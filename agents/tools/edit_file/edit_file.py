@@ -34,7 +34,7 @@ def edit_file(path, old_text, new_text):
     if target is None:
         return f"拒绝：{path} 不在 workspace 里"
     if target.name in PROTECTED:
-        return f"拒绝：{path} 只能由 James 修改"
+        return f"拒绝：{path} 受保护，不能修改"
     if not target.is_file():
         return f"找不到文件：{path}，可以先用 list_file 看看目录里有什么"
 
@@ -65,7 +65,7 @@ if __name__ == "__main__":
     print(edit_file("test_edit.md", "苹果", "梨"))           # 应该：找到 2 处
     print(edit_file("test_edit.md", "西瓜", "梨"))           # 应该：没找到
     print(edit_file("test_edit.md", "", "葡萄"))             # 应该：已追加
-    print(edit_file("RULE.md", "这句话不存在", "x"))          # 应该：拒绝，只能由 James 修改
+    print(edit_file("RULE.md", "这句话不存在", "x"))          # 应该：拒绝，受保护
     print(edit_file("../config.py", "这句话不存在", "x"))     # 应该：拒绝，不在 workspace 里
     print(edit_file("不存在.md", "x", "y"))                   # 应该：找不到文件
 
