@@ -6,7 +6,7 @@ from agents.tools import TOOLS
 from agents.memory import write_daily
 
 messages = []
-
+last_input = ""
 # 是否存在因接口异常而中断的请求
 pending_retry = False
 
@@ -69,7 +69,6 @@ while True:
         pending_retry = True
     else:
         pending_retry = False
-        last_input = ""
         print(f"{get_agent_name()}：", reply)
         write_daily(last_input, reply)
     if pending_retry:
