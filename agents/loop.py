@@ -2,6 +2,7 @@ import anthropic
 from config import MODEL
 from agents.tools import TOOL_FUNCTIONS
 from agents.permission import need_approval, ask_user
+from agents.audit import write_audit
 
 client = anthropic.Anthropic(
     max_retries=2,
@@ -15,12 +16,16 @@ def execute_tool(block,allowed):
         "content": "",
         "is_error": False,
     }
+    approval = "不需要"
     if block.name not in allowed or block.name not in TOOL_FUNCTIONS:
         result["content"] = f"抱歉，我还没有接入这个{block.name}工具"
         result["is_error"] = True
+        write_audit(block.name, block.input.get("path"), approval, False)
         return result
     try:
-        if need_approval(block.name, block.input) and not ask_user(block.name, block.input):
+        if need_approval(block.name, block.input):
+            approval = "同意" if ask_user(block.name, block.input) else "拒绝"
+        if approval == "拒绝":
             result["content"] = "用户拒绝了这个操作。不要重试，先问用户怎么做"
             result["is_error"] = True
         else:
@@ -28,6 +33,7 @@ def execute_tool(block,allowed):
     except Exception as exc:
         result["content"] = f"工具 {block.name} 出错（{type(exc).__name__}）：{exc}。请换个办法，或告诉用户。"
         result["is_error"] = True
+    write_audit(block.name, block.input.get("path"), approval, not result["is_error"])
     return result
 
 def run_agent(system, tools, messages):
