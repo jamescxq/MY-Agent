@@ -5,7 +5,7 @@ from agents.permission import need_approval, ask_user
 
 client = anthropic.Anthropic(
     max_retries=2,
-    timeout=60.0,
+    timeout=300.0,
 )
 MAX_STEPS = 10
 def execute_tool(block,allowed):
@@ -41,6 +41,10 @@ def run_agent(system, tools, messages):
         )
         print("【调试】第", step + 1, "次调用，stop_reason:", response.stop_reason)
         print("【调试】这次发了多少 token:", response.usage.input_tokens)
+        has_tool = any(block.type == "tool_use" for block in response.content)
+        has_text = any(block.type == "text" for block in response.content)
+        if response.stop_reason == "max_tokens" and (has_tool or not has_text):
+            return "（回复被截断，这次没有执行。可以让我分几次写。）"
         messages.append({"role": "assistant","content": response.content})
 
         if response.stop_reason != "tool_use":
