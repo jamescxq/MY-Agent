@@ -22,7 +22,7 @@ while True:
         break
 
     # not user_input 表示“输入是空字符串”。
-    if not user_input:
+    if not user_input.strip():
         continue
 
     if user_input == "/exit":
