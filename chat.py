@@ -3,6 +3,7 @@ import anthropic
 from agents.prompt.builder import build_system_prompt, get_agent_name
 from agents.loop import run_agent
 from agents.tools import TOOLS
+from agents.memory import write_daily
 
 messages = []
 
@@ -34,6 +35,7 @@ while True:
 
     # 重试时使用现有历史，不重复追加用户消息
     else:
+        last_input = user_input
         messages.append({
             "role": "user",
             "content": user_input,
@@ -67,6 +69,8 @@ while True:
         pending_retry = True
     else:
         pending_retry = False
+        last_input = ""
         print(f"{get_agent_name()}：", reply)
+        write_daily(last_input, reply)
     if pending_retry:
         print("对话还在，输入 /retry 可以重试。")
