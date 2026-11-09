@@ -7,6 +7,7 @@ from agents.memory import write_daily
 
 messages = []
 last_input = ""
+system_prompt = build_system_prompt()
 # 是否存在因接口异常而中断的请求
 pending_retry = False
 
@@ -41,7 +42,6 @@ while True:
             "content": user_input,
         })
     try:
-        system_prompt = build_system_prompt()
         reply = run_agent(system_prompt, TOOLS, messages)
 
     except anthropic.APIConnectionError:

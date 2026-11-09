@@ -147,7 +147,7 @@
 
 ### 阶段 3：记忆 + 每日演化
 
-- [ ] 每轮对话追加到 `memory/YYYY-MM-DD.md`
+- [x] 每轮对话追加到 `memory/YYYY-MM-DD.md`（`agents/memory/daily.py`）
 - [ ] `MEMORY.md` 拼进提示词
 - [ ] 上下文太长时裁剪旧对话；工具结果截断 + 续读入口
 - [ ] 工作空间单独 `git init` 做本地备份，不设远程、不推送
