@@ -4,6 +4,7 @@ from agents.prompt.builder import build_system_prompt, get_agent_name
 from agents.loop import run_agent
 from agents.tools import TOOLS
 from agents.memory import write_daily
+from agents.context import trim_messages
 
 messages = []
 last_input = ""
@@ -41,6 +42,7 @@ while True:
             "role": "user",
             "content": user_input,
         })
+    messages = trim_messages(messages)
     try:
         reply = run_agent(system_prompt, TOOLS, messages)
 
