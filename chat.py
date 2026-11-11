@@ -3,12 +3,13 @@ import anthropic
 from agents.prompt.builder import build_system_prompt, get_agent_name
 from agents.loop import run_agent
 from agents.tools import TOOLS
-from agents.memory import write_daily
+from agents.memory import write_daily, backup_workspace
 from agents.context import trim_messages
 
 messages = []
 last_input = ""
 system_prompt = build_system_prompt()
+backup_workspace("启动时备份")
 # 是否存在因接口异常而中断的请求
 pending_retry = False
 
@@ -73,5 +74,6 @@ while True:
         pending_retry = False
         print(f"{get_agent_name()}：", reply)
         write_daily(last_input, reply)
+        backup_workspace("对话后自动备份")
     if pending_retry:
         print("对话还在，输入 /retry 可以重试。")

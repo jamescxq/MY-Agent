@@ -7,6 +7,8 @@ def safe_path(path):
     target = (root / path).resolve()
     if not target.is_relative_to(root):
         return None
+    if any(part.lower() == ".git" for part in target.relative_to(root).parts):
+        return None
     if target.name.startswith(".env"):
         return None
     return target
@@ -16,3 +18,5 @@ if __name__ == "__main__":
     print(safe_path(".env"))         # 应该是 None
     print(safe_path(".env.local"))   # 应该是 None
     print(safe_path("../a.md"))      # 应该是 None
+    print(safe_path(".git/config"))          # 应该是 None
+    print(safe_path(".GIT/hooks/pre-commit"))  # 应该是 None
