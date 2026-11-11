@@ -150,7 +150,7 @@
 - [x] 每轮对话追加到 `memory/YYYY-MM-DD.md`（`agents/memory/daily.py`）
 - [ ] `MEMORY.md` 拼进提示词
 - [x] 上下文太长时整轮删除旧对话，保留最新一轮并去掉思考块（`agents/context/trim.py`）
-- [ ] 工具结果截断 + 续读入口
+- [x] 工具结果截断 + 续读入口：`read_file` 一次最多返回 5000 字，超出时提示下一次的 `offset`（`agents/tools/read_file/read_file.py`）。其他工具还没有统一上限
 - [ ] 工作空间单独 `git init` 做本地备份，不设远程、不推送
 - [ ] "做梦"：每晚读当天记录，改写 `MEMORY.md`，自动提交到工作空间的本地 git
 - [ ] Skill：`workspace/skills/*/SKILL.md`，builder 只拼名字和说明，用时再读全文
