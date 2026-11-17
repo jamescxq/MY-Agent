@@ -9,7 +9,7 @@ client = anthropic.Anthropic(
     timeout=300.0,
 )
 MAX_STEPS = 10
-def execute_tool(block,allowed):
+def execute_tool(block, allowed, approver):
     result = {
         "type": "tool_result",
         "tool_use_id": block.id,
@@ -24,7 +24,7 @@ def execute_tool(block,allowed):
         return result
     try:
         if need_approval(block.name, block.input):
-            approval = "同意" if ask_user(block.name, block.input) else "拒绝"
+            approval = "同意" if approver(block.name, block.input) else "拒绝"
         if approval == "拒绝":
             result["content"] = "用户拒绝了这个操作。不要重试，先问用户怎么做"
             result["is_error"] = True
@@ -36,7 +36,7 @@ def execute_tool(block,allowed):
     write_audit(block.name, block.input.get("path"), approval, not result["is_error"])
     return result
 
-def run_agent(system, tools, messages):
+def run_agent(system, tools, messages, approver=ask_user):
     for step in range(MAX_STEPS):
         response = client.messages.create(
             model=MODEL,
@@ -66,7 +66,7 @@ def run_agent(system, tools, messages):
             if block.type != "tool_use":
                 continue
             print("【调试】调用工具:", block.name)
-            result = execute_tool(block,allowed)
+            result = execute_tool(block, allowed, approver)
             results.append(result)
         messages.append({"role": "user", "content": results})
 
