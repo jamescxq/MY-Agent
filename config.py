@@ -9,3 +9,4 @@ LOGS = ROOT.parent / "MY-Agent-logs"
 TEMPLATES = ROOT / "templates"
 WORKSPACE = ROOT.parent / "MY-Agent-workspace"
 MODEL = os.getenv("MODEL", "claude-opus-5-5")
+FEISHU_WEBHOOK = os.getenv("FEISHU_WEBHOOK")

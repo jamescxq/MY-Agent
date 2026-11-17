@@ -3,6 +3,7 @@ from .read_file import READ_FILE_TOOL, read_file
 from .list_file import LIST_FILE_TOOL, list_file
 from .edit_file import EDIT_FILE_TOOL, edit_file
 from .write_file import WRITE_FILE_TOOL,write_file
+from .notify import NOTIFY_TOOL, notify
 
 REGISTRY = [
     (GET_TIME_TOOL, get_time),
@@ -10,6 +11,7 @@ REGISTRY = [
     (LIST_FILE_TOOL, list_file),
     (EDIT_FILE_TOOL, edit_file),
     (WRITE_FILE_TOOL,write_file),
+    (NOTIFY_TOOL, notify),
 ]
 
 TOOLS = [schema for schema, func in REGISTRY]

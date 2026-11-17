@@ -35,7 +35,7 @@ flowchart TB
 | 模块 | 内容 | 状态 |
 |---|---|---|
 | 智能体内核 | 工具调用循环（步数上限防死循环）、工具注册中心、工具出错时把错误反馈给模型自我纠正、回复被截断时不执行半截的工具调用 | 已实现 |
-| 工具 | `read_file`、`write_file`、`edit_file`、`list_file`、`get_time` | 已实现 |
+| 工具 | `read_file`、`write_file`、`edit_file`、`list_file`、`get_time`、`notify`（往飞书群发通知，发到哪由配置决定，模型只能决定发什么） | 已实现 |
 | 安全 | 路径规范化，只能访问工作区（防 `../` 穿越）；`.env` 密钥文件对智能体不可见；覆盖已有文件前人工确认；每次工具调用写 JSONL 审计日志（只记摘要） | 已实现 |
 | 记忆 | 人设、用户档案、长期记忆注入系统提示词；每轮对话按天写入 `memory/YYYY-MM-DD.md` | 已实现 |
 | 上下文管理 | 超出预算时整轮淘汰旧对话，保留最新一轮；淘汰后剥离思考块，兼容 extended thinking；读文件一次最多返回 5000 字，超出时提示下一次的 `offset`，模型自己分段续读 | 已实现 |
@@ -87,7 +87,7 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-复制 `.env.example` 为 `.env`，填入自己的 `ANTHROPIC_API_KEY`。`MODEL` 不填时默认用 `claude-opus-5-5`；用其他兼容 Anthropic 接口的服务商时，再填 `ANTHROPIC_BASE_URL`。
+复制 `.env.example` 为 `.env`，填入自己的 `ANTHROPIC_API_KEY`。`MODEL` 不填时默认用 `claude-opus-5-5`；用其他兼容 Anthropic 接口的服务商时，再填 `ANTHROPIC_BASE_URL`。想让它往飞书发通知时，填 `FEISHU_WEBHOOK`（飞书群自定义机器人的地址，关键词设为"小牛"）；不填就不发。
 
 ```bash
 python chat.py
