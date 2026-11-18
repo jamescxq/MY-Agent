@@ -19,7 +19,12 @@ def onboarding_done(ctx):
     return PLACEHOLDER not in text
 
 def build_system_prompt(ctx):
+    """入口启动时调用：先把工作区准备好，再拼提示词。"""
     ensure_workspace()
+    return assemble_prompt(ctx)
+
+def assemble_prompt(ctx):
+    """只读这个 Agent 的文件、拼成提示词，不碰工作区的结构。评测用的就是这个。"""
     parts = []
     for name, path in prompt_files(ctx):
         if not path.exists():

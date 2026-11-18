@@ -885,7 +885,7 @@ MY-Agent-workspace/
 - [x] B2 数据库 `state.db`（SQLite，Python 自带）：`bots`（档案）、`sessions`（会话）、`session_members`（成员名单）三张表，都带 `owner` 列。代码在 `agents/store/sessions.py`：`connect()` 打开并建表，`backup_db()` 一天备份一份、留 7 份。门禁拦住 `state.db` 开头的文件名。启动时调用它们留到 B3 接上
 - [x] B3 工作区改成 `user/` + `bots/<编号>/`，文件夹由代码创建；`ensure_workspace()`（在 `agents/bots/workspace.py`）把现在的主 bot 搬成第一个 Agent：`USER.md`、`MEMORY.md` 搬到 `user/`，其它的都搬到 `bots/main/`，只移动不覆盖，搬之前先做一次 git 备份。启动时顺带登记主 bot、备份数据库。`builder.py`、`daily.py` 改成从 `ctx` 取路径。模板分成 `templates/bot/` 和 `templates/user/`。"记住"工具做出来之前，主 bot 直接用文件工具写 `user/MEMORY.md`
 - [x] `run_agent` 的审批函数做成参数（`approver`，飞书入口传的是"一律拒绝"）
-- [ ] B4 最小的评测脚本：`evals/run.py`、`evals/graders.py`，第 1 道题
+- [x] B4 最小的评测脚本：`evals/run.py`、`evals/graders.py`，第 1 道题（`evals/tasks/basic.py` 的"记住称呼"）。运行：`python -m evals.run`，加 `--runs 1` 只跑一次。每次在临时文件夹里新建一个 Agent，跑完就删；评测里的工具调用不写审计日志。现在只报通过或不通过，平均 token 和步数等阶段做追踪时再加
 
 验收：旧记忆自动搬到新位置，一字不差；它还认识用户；一个 Agent 的工具读不到另一个 Agent 的文件夹，也读不到 `state.db`；评测脚本能跑通第 1 道题，故意写错检查项时会报"不通过"；跑完评测后真的工作区没有变化。
 

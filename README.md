@@ -116,6 +116,8 @@ MY-Agent/
 ├── config.py             路径、模型配置
 ├── agents/
 │   ├── loop.py           智能体内核 run_agent()
+│   ├── bots/             运行上下文 ctx、工作区结构
+│   ├── store/            数据库 state.db（SQLite）
 │   ├── tools/            工具
 │   ├── permission/       路径校验 guard.py、审批门 gate.py
 │   ├── audit/            审计日志
@@ -123,6 +125,7 @@ MY-Agent/
 │   ├── context/          上下文裁剪
 │   └── prompt/           系统提示词拼接
 ├── templates/            人设、用户档案等空白模板
+├── evals/                评测：python -m evals.run（会调用模型）
 ├── playground/           试验脚本，正式代码不引用
 └── docs/DESIGN.md        设计文档和路线图
 ```
