@@ -1,5 +1,5 @@
 from config import STATE_DB, BOTS_DIR
-from agents.store import list_bots, rename_bot
+from agents.store import list_bots, rename_bot, set_packs
 from .profile import from_row, read_name
 
 # 花名册：有哪些 Agent。数据存在数据库的 bots 表里，这里不写 SQL，只调 agents/store 的函数。
@@ -8,6 +8,19 @@ from .profile import from_row, read_name
 def all_bots(db=STATE_DB):
     """全部 Agent 的档案，按新建的先后排。"""
     return [from_row(row) for row in list_bots(db)]
+
+
+def get_bot(bot_id, db=STATE_DB):
+    """按编号取一个 Agent 的档案。没有返回 None。"""
+    for bot in all_bots(db):
+        if bot.id == bot_id:
+            return bot
+    return None
+
+
+def save_packs(bot_id, packs, db=STATE_DB):
+    """把用户给这个 Agent 打开的能力包存进花名册。"""
+    set_packs(bot_id, packs, db)
 
 
 def find_bot(text, db=STATE_DB):

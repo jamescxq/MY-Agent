@@ -1,3 +1,4 @@
+import json
 import sqlite3
 from datetime import date
 from pathlib import Path
@@ -80,6 +81,16 @@ def rename_bot(bot_id, name, path=STATE_DB):
     conn = connect(path)
     try:
         conn.execute("UPDATE bots SET name = ? WHERE id = ?", (name, bot_id))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def set_packs(bot_id, packs, path=STATE_DB):
+    """改花名册里"启用的能力包"。packs 是一个列表，存的时候转成一段 JSON 文字。"""
+    conn = connect(path)
+    try:
+        conn.execute("UPDATE bots SET packs = ? WHERE id = ?", (json.dumps(packs), bot_id))
         conn.commit()
     finally:
         conn.close()

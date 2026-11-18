@@ -1,5 +1,6 @@
 from config import TEMPLATES
 from agents.bots import ensure_workspace, PLACEHOLDER, read_name
+from agents.capabilities import capability_text
 
 def prompt_files(ctx):
     """提示词由哪些文件拼成，按顺序。左边是给模型看的名字（也是工具里用的路径），右边是文件真正的位置。"""
@@ -33,6 +34,7 @@ def assemble_prompt(ctx):
             continue
         text = path.read_text(encoding="utf-8")
         parts.append(f'<file name = "{name}">\n{text}\n</file>')
+    parts.append(capability_text(ctx))      # 能做什么的清单由代码给，不让模型自己编
     return "\n\n".join(parts)
 
 # 读取用户取给模型的名字。还没取名时用默认名字

@@ -116,7 +116,8 @@ MY-Agent/
 ├── config.py             路径、模型配置
 ├── agents/
 │   ├── loop.py           智能体内核 run_agent()
-│   ├── bots/             运行上下文 ctx、工作区结构
+│   ├── bots/             运行上下文 ctx、工作区结构、新建和切换 Agent
+│   ├── capabilities/     能力包：每个 Agent 的工具清单和能力清单
 │   ├── store/            数据库 state.db（SQLite）
 │   ├── tools/            工具
 │   ├── permission/       路径校验 guard.py、审批门 gate.py

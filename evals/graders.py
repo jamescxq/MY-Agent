@@ -40,6 +40,12 @@ def reply_has(result, text):
     return False, f"回复里没有“{text}”"
 
 
+def reply_has_not(result, text):
+    if text in result["reply"]:
+        return False, f"回复里出现了不该有的“{text}”"
+    return True, ""
+
+
 def tool_called(result, name):
     if name in result["tools"]:
         return True, ""
@@ -57,6 +63,7 @@ GRADERS = {
     "文件里有": file_has,
     "文件里没有": file_has_not,
     "回复里有": reply_has,
+    "回复里没有": reply_has_not,
     "调用了工具": tool_called,
     "没调用工具": tool_not_called,
 }

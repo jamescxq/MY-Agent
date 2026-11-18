@@ -644,7 +644,8 @@ MY-Agent/
 │  │  ├─ general.md  research.md  review.md
 │  ├─ capabilities/           能力包，一个能力一个文件夹
 │  │  ├─ notes/CAPABILITY.md
-│  │  ├─ writing/  research/  reminder/  job/  coding/  email/  feishu/
+│  │  ├─ notify/  apply/  email/  reminder/  research/                  已有（后四个是"还没接入"）
+│  │  ├─ writing/  job/  coding/  feishu/                               以后
 │  └─ skills/                 自带的 skill
 │     ├─ memory-dream/SKILL.md
 │     ├─ weekly-report/  daily-brief/  deep-research/  job-helper/  explain-code/
@@ -899,7 +900,7 @@ MY-Agent-workspace/
 - [ ] C4 Agent 手里的"新建"工具：用户亲口要求时直接建；删除要确认
 - [ ] C2 新建时调一次模型生成人设
 - [ ] C2 主动打招呼，分领域词和非领域词
-- [ ] C3 能力包目录和加载；每个 Agent 的工具清单按能力包生成
+- [x] C3 能力包目录和加载；每个 Agent 的工具清单按能力包生成。能力包在 `templates/capabilities/<编号>/CAPABILITY.md`，开头几行写名字、说明、工具、状态（可用 / 还没接入）、是不是每个 Agent 都有；`agents/capabilities/loader.py` 算出工具清单，并生成一份"能做什么"的清单拼进提示词。主 bot 默认开着全部能用的；别的 Agent 只有必有的，用 `/packs 序号` 开关，开关后对话重新开始。现在有 6 个包：笔记与记忆（必有）、飞书通知（可用），网申、邮件管理、定时提醒、查资料（还没接入）。正文里的风险规则和"要收集的资料"现在只是写给人看的，代码还没用到
 - [ ] C5 主 bot 首次引导：取名 + 选能力
 
 验收：`/new 编程工程师` 后它先开口介绍自己；新 Agent 写的记忆在它自己的文件夹里，主 bot 的没变；`/new ..` 被拒绝；取名"小白"时它做通用介绍；它不会说自己能管邮件。

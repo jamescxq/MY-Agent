@@ -18,15 +18,17 @@ from config import TEMPLATES
 from agents.bots import Ctx
 from agents.permission.guard import safe_path
 from agents.prompt.builder import assemble_prompt
-from agents.tools import TOOLS
+from agents.tools import TOOL_FUNCTIONS
+from agents.capabilities import enabled_ids, tools_for
 from evals.graders import check
 from evals.tasks import ALL_TASKS
 
 
-def make_agent(root, files, is_main=True):
+def make_agent(root, files, is_main=True, packs=()):
     """在临时文件夹 root 里建一个 Agent：先放空白模板，再放这道题的初始文件。返回它的工牌。
 
     is_main=False 表示它是专属 Agent，不是主 bot：能读公共的 user/，不能改。
+    packs 是这道题给它打开的能力包；主 bot 默认全开。
     """
     ctx = Ctx(bot_id="eval", folder=root / "bots" / "eval", user_folder=root / "user", can_write_user=True)
     ctx.folder.mkdir(parents=True)
@@ -42,6 +44,7 @@ def make_agent(root, files, is_main=True):
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(content, encoding="utf-8")
     ctx.can_write_user = is_main          # 初始文件放好以后，再按身份收回改 user/ 的权限
+    ctx.packs = enabled_ids("main" if is_main else "eval", packs)
     return ctx
 
 
@@ -61,13 +64,13 @@ def run_once(task):
     """把一道题跑一次。返回 (对不对, 没通过的说明列表, 这次的结果)。"""
     answer = task.get("审批", True)
     with tempfile.TemporaryDirectory() as tmp:
-        ctx = make_agent(Path(tmp), task["初始文件"], is_main=task.get("身份") != "专属")
+        ctx = make_agent(Path(tmp), task["初始文件"], is_main=task.get("身份") != "专属", packs=task.get("能力包", ()))
         system = assemble_prompt(ctx)
         messages = []
         reply = ""
         for text in task["用户说"]:
             messages.append({"role": "user", "content": text})
-            reply = loop.run_agent(ctx, system, TOOLS, messages, approver=lambda name, args: answer)
+            reply = loop.run_agent(ctx, system, tools_for(ctx), messages, approver=lambda name, args: answer)
         result = {"ctx": ctx, "reply": reply, "tools": tools_called(messages)}
         problems = []
         for item in task["检查"]:           # 检查要在临时文件夹被删掉之前做
@@ -113,6 +116,8 @@ def main():
 
     # 评测里的工具调用不是用户真的在用，不写进真的审计日志
     loop.write_audit = lambda *record: None
+    # 评测里不真的往飞书发通知：换成一个只回答"已发送"的假工具
+    TOOL_FUNCTIONS["notify"] = lambda ctx, text: "已发送（评测里没有真的发）"
 
     passed = sum(run_task(task, args.runs) for task in tasks)
     print(f"\n总计：{len(tasks)} 道题，通过 {passed} 道")

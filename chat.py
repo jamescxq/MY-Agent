@@ -3,7 +3,7 @@ import anthropic
 from agents.bots import main_ctx, ctx_for, handle_command
 from agents.prompt.builder import build_system_prompt, assemble_prompt, get_agent_name
 from agents.loop import run_agent
-from agents.tools import TOOLS
+from agents.capabilities import tools_for
 from agents.memory import write_daily, backup_workspace
 from agents.context import trim_messages
 
@@ -11,10 +11,11 @@ messages = []
 last_input = ""
 ctx = main_ctx()      # 工牌：现在只有主 bot 一个
 system_prompt = build_system_prompt(ctx)
+tools = tools_for(ctx)      # 这个 Agent 能用的工具，按它启用的能力包算出来
 backup_workspace("启动时备份")
 # 是否存在因接口异常而中断的请求
 pending_retry = False
-# 切走的 Agent 先存在这里：编号 → (工牌, 提示词, 对话历史)，切回来时接着聊
+# 切走的 Agent 先存在这里：编号 → (工牌, 提示词, 工具, 对话历史)，切回来时接着聊
 parked = {}
 
 def open_talk(bot_id):
@@ -22,10 +23,10 @@ def open_talk(bot_id):
     if bot_id in parked:
         return parked.pop(bot_id)
     new_ctx = ctx_for(bot_id)
-    return new_ctx, assemble_prompt(new_ctx), []
+    return new_ctx, assemble_prompt(new_ctx), tools_for(new_ctx), []
 
 print("输入 /retry 重试中断的请求，输入 /exit 退出。")
-print("输入 /bots 看有哪些 Agent，/new 名字 新建一个，/use 名字 切换。")
+print("输入 /bots 看有哪些 Agent，/new 名字 新建一个，/use 名字 切换，/packs 看能力。")
 
 while True:
     try:
@@ -43,14 +44,17 @@ while True:
     if user_input == "/exit":
         break
 
-    # /new、/bots、/use 由 agents/bots 处理；别的话返回 None，照常交给模型
+    # /new、/bots、/use、/packs 由 agents/bots 处理；别的话返回 None，照常交给模型
     result = handle_command(user_input, ctx.bot_id)
     if result is not None:
-        text, bot_id = result
+        text, bot_id, restart = result
         print(text)
-        if bot_id != ctx.bot_id:
-            parked[ctx.bot_id] = (ctx, system_prompt, messages)     # 把现在这个 Agent 的对话存起来
-            ctx, system_prompt, messages = open_talk(bot_id)
+        if restart:
+            parked.pop(bot_id, None)        # 它的能力变了，旧对话不能接着用
+        elif bot_id != ctx.bot_id:
+            parked[ctx.bot_id] = (ctx, system_prompt, tools, messages)     # 把现在这个 Agent 的对话存起来
+        if restart or bot_id != ctx.bot_id:
+            ctx, system_prompt, tools, messages = open_talk(bot_id)
             pending_retry = False
         continue
 
@@ -68,7 +72,7 @@ while True:
         })
     messages = trim_messages(messages)
     try:
-        reply = run_agent(ctx, system_prompt, TOOLS, messages)
+        reply = run_agent(ctx, system_prompt, tools, messages)
 
     except anthropic.APIConnectionError:
         print("我链接不到这个api，你看看是不是网卡了")
