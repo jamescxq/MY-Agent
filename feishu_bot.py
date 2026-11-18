@@ -10,6 +10,7 @@ import lark_oapi as lark
 from lark_oapi.api.im.v1 import CreateMessageRequest, CreateMessageRequestBody
 
 from config import FEISHU_APP_ID, FEISHU_APP_SECRET, FEISHU_OWNER_ID
+from agents.bots import main_ctx
 from agents.prompt.builder import build_system_prompt, get_agent_name
 from agents.loop import run_agent
 from agents.tools import TOOLS
@@ -84,7 +85,7 @@ def handle(chat_id, text):
     before = len(messages)
     messages.append({"role": "user", "content": text})
     try:
-        reply = run_agent(system_prompt, TOOLS, messages, approver=deny)
+        reply = run_agent(main_ctx(), system_prompt, TOOLS, messages, approver=deny)
     except anthropic.APIError as exc:
         del messages[before:]      # 这一轮没做成，从历史里拿掉，下次重新来
         print(f"【系统】模型接口异常：{type(exc).__name__}")

@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from pathlib import Path
+from config import WORKSPACE
 
 
 # 运行上下文，可以理解成一张工牌：是哪个 Agent 在干活、它的文件夹在哪。
@@ -10,10 +11,13 @@ class Ctx:
     folder: Path         # 它自己的文件夹
     user_folder: Path    # 公共的 user/ 文件夹，所有 Agent 都能看
 
+def main_ctx():
+    """主 bot 的工牌。B3 之前，两个文件夹都先指向现在的工作区。"""
+    return Ctx(bot_id="main", folder=WORKSPACE, user_folder=WORKSPACE)
+
 
 if __name__ == "__main__":
-    from config import WORKSPACE
-
-    ctx = Ctx(bot_id="main", folder=WORKSPACE, user_folder=WORKSPACE)
+    ctx = main_ctx()
     print(ctx.bot_id)      # 应该：main
     print(ctx.folder)      # 应该：工作区的路径
+

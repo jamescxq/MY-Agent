@@ -29,8 +29,8 @@ EDIT_FILE_TOOL = {
 
 }
 
-def edit_file(path, old_text, new_text):
-    target = safe_path(path)
+def edit_file(ctx, path, old_text, new_text):
+    target = safe_path(ctx, path)
     if target is None:
         return f"拒绝：{path} 不在 workspace 里"
     if target.name in PROTECTED:
@@ -56,18 +56,19 @@ def edit_file(path, old_text, new_text):
     return f"已修改{path}"
 
 if __name__ == "__main__":
-    from config import WORKSPACE
+    from agents.bots import main_ctx
 
-    test = WORKSPACE / "test_edit.md"
+    ctx = main_ctx()
+    test = ctx.folder / "test_edit.md"
     test.write_text("苹果\n香蕉\n苹果", encoding="utf-8")    # 造一个临时文件，末尾故意不带换行
 
-    print(edit_file("test_edit.md", "香蕉", "橘子"))         # 应该：已修改
-    print(edit_file("test_edit.md", "苹果", "梨"))           # 应该：找到 2 处
-    print(edit_file("test_edit.md", "西瓜", "梨"))           # 应该：没找到
-    print(edit_file("test_edit.md", "", "葡萄"))             # 应该：已追加
-    print(edit_file("RULE.md", "这句话不存在", "x"))          # 应该：拒绝，受保护
-    print(edit_file("../config.py", "这句话不存在", "x"))     # 应该：拒绝，不在 workspace 里
-    print(edit_file("不存在.md", "x", "y"))                   # 应该：找不到文件
+    print(edit_file(ctx, "test_edit.md", "香蕉", "橘子"))         # 应该：已修改
+    print(edit_file(ctx, "test_edit.md", "苹果", "梨"))           # 应该：找到 2 处
+    print(edit_file(ctx, "test_edit.md", "西瓜", "梨"))           # 应该：没找到
+    print(edit_file(ctx, "test_edit.md", "", "葡萄"))             # 应该：已追加
+    print(edit_file(ctx, "RULE.md", "这句话不存在", "x"))          # 应该：拒绝，受保护
+    print(edit_file(ctx, "../config.py", "这句话不存在", "x"))     # 应该：拒绝，不在 workspace 里
+    print(edit_file(ctx, "不存在.md", "x", "y"))                   # 应该：找不到文件
 
     print("----- 临时文件最后的内容 -----")
     print(test.read_text(encoding="utf-8"))

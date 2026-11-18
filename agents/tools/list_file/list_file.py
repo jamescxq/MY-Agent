@@ -14,8 +14,8 @@ LIST_FILE_TOOL = {
     },
 }
 
-def list_file(path=""):
-    target = safe_path(path)
+def list_file(ctx, path=""):
+    target = safe_path(ctx, path)
     if target is None:
         return f"拒绝：{path} 不在 workspace 里"
     if not target.is_dir():
@@ -33,6 +33,9 @@ def list_file(path=""):
     return "\n".join(names)
 
 if __name__ == "__main__":
-    print(list_file())               # 应该列出 AGENT.md、MEMORY.md 等
-    print(list_file("../agents"))    # 应该被拒绝
-    print(list_file("不存在"))        # 应该提示找不到
+    from agents.bots import main_ctx
+
+    ctx = main_ctx()
+    print(list_file(ctx))               # 应该列出 AGENT.md、MEMORY.md 等
+    print(list_file(ctx, "../agents"))  # 应该被拒绝
+    print(list_file(ctx, "不存在"))      # 应该提示找不到

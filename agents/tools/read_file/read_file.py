@@ -21,8 +21,8 @@ READ_FILE_TOOL = {
     },
 }
 
-def read_file(path, offset=0):
-    target = safe_path(path)
+def read_file(ctx, path, offset=0):
+    target = safe_path(ctx, path)
     if target is None:
         return f"拒绝：{path} 不在WORKSPACE里"
     if not target.is_file():
@@ -40,6 +40,9 @@ def read_file(path, offset=0):
     return part
 
 if __name__ == "__main__":
-    print(read_file("USER.md"))
-    print(read_file("../config.py"))
-    print(read_file("不存在.md"))
+    from agents.bots import main_ctx
+
+    ctx = main_ctx()
+    print(read_file(ctx, "USER.md"))
+    print(read_file(ctx, "../config.py"))
+    print(read_file(ctx, "不存在.md"))

@@ -22,8 +22,8 @@ WRITE_FILE_TOOL = {
     },
 }
 
-def write_file(path, content):
-    target = safe_path(path)
+def write_file(ctx, path, content):
+    target = safe_path(ctx, path)
     if target is None:
         return f"拒绝：{path} 不在 workspace 里"
     if target.name in PROTECTED:
@@ -36,15 +36,16 @@ def write_file(path, content):
     return f"已写入{path}"
 
 if __name__ == "__main__":
-    from config import WORKSPACE
+    from agents.bots import main_ctx
 
-    print(write_file("test_write/note.md", "第一版"))    # 应该：已写入（自动建文件夹）
-    print(write_file("test_write/note.md", "第二版"))    # 应该：已写入（覆盖旧内容）
-    print(write_file("RULE.md", "x"))                    # 应该：拒绝，受保护
-    print(write_file("../test_outside.md", "x"))         # 应该：拒绝，不在 workspace 里
-    print(write_file("", "x"))                           # 应该：拒绝，是文件夹
+    ctx = main_ctx()
+    print(write_file(ctx, "test_write/note.md", "第一版"))    # 应该：已写入（自动建文件夹）
+    print(write_file(ctx, "test_write/note.md", "第二版"))    # 应该：已写入（覆盖旧内容）
+    print(write_file(ctx, "RULE.md", "x"))                    # 应该：拒绝，受保护
+    print(write_file(ctx, "../test_outside.md", "x"))         # 应该：拒绝，不在 workspace 里
+    print(write_file(ctx, "", "x"))                           # 应该：拒绝，是文件夹
 
-    test = WORKSPACE / "test_write" / "note.md"
+    test = ctx.folder / "test_write" / "note.md"
     print("----- 文件最后的内容 -----")
     print(test.read_text(encoding="utf-8"))              # 应该：第二版
     test.unlink()                                        # 测完删掉临时文件

@@ -9,6 +9,7 @@ GET_TIME_TOOL = {
     },
 }
 
-def get_time():
+# 这个工具用不到 ctx，但每个工具的第一个参数都统一是它
+def get_time(ctx):
     now = datetime.now()
     return now.strftime("%Y-%m-%d %H:%M:%S %A")

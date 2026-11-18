@@ -19,7 +19,8 @@ NOTIFY_TOOL = {
 
 # 发到哪里由 .env 里的地址决定，模型只能决定发什么。
 # 飞书的消息格式暂时写在这里；阶段 I 有了连接器以后，搬到 MY-Agent-connectors。
-def notify(text):
+# 这个工具用不到 ctx，但每个工具的第一个参数都统一是它
+def notify(ctx, text):
     if not FEISHU_WEBHOOK:
         return "没有配置飞书通知：.env 里缺少 FEISHU_WEBHOOK"
     message = {"msg_type": "text", "content": {"text": "【小牛】" + text}}
@@ -36,4 +37,6 @@ def notify(text):
     return "已发到飞书"
 
 if __name__ == "__main__":
-    print(notify("这是一条测试通知"))
+    from agents.bots import main_ctx
+
+    print(notify(main_ctx(), "这是一条测试通知"))

@@ -1,9 +1,8 @@
-from config import WORKSPACE
 
 PROTECTED = ["RULE.md"]
 
-def safe_path(path):
-    root = WORKSPACE.resolve()
+def safe_path(ctx, path):
+    root = ctx.folder.resolve()
     target = (root / path).resolve()
     if not target.is_relative_to(root):
         return None
@@ -14,9 +13,11 @@ def safe_path(path):
     return target
 
 if __name__ == "__main__":
-    print(safe_path("AGENT.md"))     # 应该显示完整路径
-    print(safe_path(".env"))         # 应该是 None
-    print(safe_path(".env.local"))   # 应该是 None
-    print(safe_path("../a.md"))      # 应该是 None
-    print(safe_path(".git/config"))          # 应该是 None
-    print(safe_path(".GIT/hooks/pre-commit"))  # 应该是 None
+    from agents.bots import main_ctx
+    ctx = main_ctx()
+    print(safe_path(ctx, "AGENT.md"))     # 应该显示完整路径
+    print(safe_path(ctx, ".env"))         # 应该是 None
+    print(safe_path(ctx, ".env.local"))   # 应该是 None
+    print(safe_path(ctx, "../a.md"))      # 应该是 None
+    print(safe_path(ctx, ".git/config"))          # 应该是 None
+    print(safe_path(ctx, ".GIT/hooks/pre-commit"))  # 应该是 None

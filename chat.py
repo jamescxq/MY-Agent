@@ -1,5 +1,6 @@
 import anthropic
 
+from agents.bots import main_ctx
 from agents.prompt.builder import build_system_prompt, get_agent_name
 from agents.loop import run_agent
 from agents.tools import TOOLS
@@ -9,6 +10,7 @@ from agents.context import trim_messages
 messages = []
 last_input = ""
 system_prompt = build_system_prompt()
+ctx = main_ctx()      # 工牌：现在只有主 bot 一个
 backup_workspace("启动时备份")
 # 是否存在因接口异常而中断的请求
 pending_retry = False
@@ -45,7 +47,7 @@ while True:
         })
     messages = trim_messages(messages)
     try:
-        reply = run_agent(system_prompt, TOOLS, messages)
+        reply = run_agent(ctx, system_prompt, TOOLS, messages)
 
     except anthropic.APIConnectionError:
         print("我链接不到这个api，你看看是不是网卡了")
