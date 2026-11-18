@@ -2,10 +2,90 @@ from agents.capabilities import load_packs, enabled_ids
 from .create import create_bot
 from .registry import all_bots, get_bot, find_bot, save_packs
 
-# 管理 Agent 的命令：/new、/bots、/use、/packs。
-# 写在这里而不是 chat.py 里：命令行和飞书都调这一个函数，行为就完全一样。
+# 管理 Agent 的命令：/new、/bots、/use、/packs，飞书里还有 /join、/leave。
+# 写在这里而不是入口里：命令的逻辑只有一份。
+#   handle_command()          给命令行用：一次只和一个 Agent 对话
+#   handle_session_command()  给飞书用：一个会话里可以有多个 Agent
 
 MAIN = "main"
+
+
+def name_of(bot_id):
+    bot = get_bot(bot_id)
+    return bot.name if bot else bot_id
+
+
+def handle_session_command(text, members):
+    """处理一条命令。members 是这个会话的成员名单（Agent 编号的列表）。
+
+    返回三样东西：(要显示给用户的话, 新的成员名单, 能力变了的 Agent 编号列表)。
+    不是命令就返回 None，调用的地方把它当普通的话交给成员们。
+    """
+    command, _, arg = text.strip().partition(" ")
+    arg = arg.strip()
+
+    def roster(ids):
+        return "、".join(name_of(bot_id) for bot_id in ids)
+
+    if command == "/bots":
+        lines = ["现在有这些 Agent（→ 是这个会话里的）："]
+        for bot in all_bots():
+            mark = "→" if bot.id in members else "  "
+            note = f"：{bot.description}" if bot.description else ""
+            lines.append(f"{mark} {bot.name}（{bot.id}）{note}")
+        lines.append("让它加入：/join 名字    让它离开：/leave 名字    只留一个：/use 名字")
+        lines.append("新建：/new 名字    看能力：/packs    让它们停下：/stop")
+        return "\n".join(lines), members, []
+
+    if command == "/new":
+        if not arg:
+            return "用法：/new 名字，比如 /new 编程工程师", members, []
+        try:
+            bot = create_bot(arg)
+        except ValueError as exc:
+            return f"没有建成：{exc}", members, []
+        joined = members + [bot.id]
+        return f"已新建「{bot.name}」（编号 {bot.id}），它加入了这个会话。现在的成员：{roster(joined)}。", joined, []
+
+    if command in ("/join", "/leave", "/use"):
+        if not arg:
+            return f"用法：{command} 名字。/bots 可以看有哪些", members, []
+        bot = find_bot(arg)
+        if bot is None:
+            return f"没有叫「{arg}」的 Agent。/bots 可以看有哪些", members, []
+        if command == "/use":
+            return f"这个会话现在只有「{bot.name}」。", [bot.id], []
+        if command == "/join":
+            if bot.id in members:
+                return f"「{bot.name}」已经在这个会话里了。", members, []
+            joined = members + [bot.id]
+            return f"「{bot.name}」加入了这个会话。现在的成员：{roster(joined)}。话里叫谁的名字，就只有谁回答。", joined, []
+        if bot.id not in members:
+            return f"「{bot.name}」不在这个会话里。", members, []
+        if len(members) == 1:
+            return "这个会话只剩它一个了，不能再让它离开。想换人用 /use 名字", members, []
+        left = [bot_id for bot_id in members if bot_id != bot.id]
+        return f"「{bot.name}」离开了这个会话。现在的成员：{roster(left)}。", left, []
+
+    if command == "/packs":
+        if len(members) == 1:
+            target, rest = members[0], arg
+        else:
+            # 多个成员时要写名字：/packs 二牛，或 /packs 二牛 2
+            name, _, last = arg.rpartition(" ")
+            bot = find_bot(arg)
+            rest = ""
+            if bot is None and name:
+                bot, rest = find_bot(name), last
+            if bot is None or bot.id not in members:
+                return "这个会话里有多个 Agent，要写上名字：/packs 二牛 看它的能力，/packs 二牛 2 开关一项", members, []
+            target = bot.id
+        if not rest:
+            return show_packs(target), members, []
+        reply, _, changed = switch_pack(target, rest)
+        return reply, members, [target] if changed else []
+
+    return None
 
 
 def handle_command(text, current_id):
@@ -50,6 +130,9 @@ def handle_command(text, current_id):
         if not arg:
             return show_packs(current_id), current_id, False
         return switch_pack(current_id, arg)
+
+    if command in ("/join", "/leave"):
+        return "命令行里一次只和一个 Agent 对话，用 /use 名字 切换。多个 Agent 一起聊要在飞书里。", current_id, False
 
     return None
 
