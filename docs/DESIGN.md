@@ -761,12 +761,13 @@ MY-Agent-workspace/
 │  │  └─ todo/                它的任务清单
 │  └─ coder/                  举例：用户建了"编程工程师"以后多出来的，结构一样
 ├─ schedules.json             定时任务
-└─ state.db                   SQLite：Agent 档案、会话、成员名单、对话历史、断点（不进 git 备份）
+├─ state.db                   SQLite：Agent 档案、会话、成员名单、对话历史、断点（不进 git 备份）
+└─ db-backups/                state.db 的备份，一天一份，留 7 份（不进 git 备份）
 ```
 
 - 现在的工作区还是旧结构（根目录直接放 `AGENT.md`、`USER.md`、`MEMORY.md`、`memory/`）。阶段 B 由 `ensure_workspace()` 自动搬成上面的样子，已有的文件不覆盖。
 - 文件夹由 `create_bot()` 在新建时创建，上面的 `coder/` 只是举例。
-- `state.db` 放在所有 Agent 文件夹的外面，工具碰不到。它不进 git 备份，要另外备份，做法在阶段 B 定。
+- `state.db` 放在所有 Agent 文件夹的外面，工具碰不到；门禁另外按文件名再拦一道（`state.db` 开头的都拒绝）。它不进 git 备份，由 `backup_db()` 用 SQLite 自带的备份功能另存到 `db-backups/`，一天一份，留最近 7 份。
 - 文件夹用英文编号（只许字母、数字、横线），中文名字写在数据库的档案里。名字是用户输入的，直接当文件夹名会有安全问题（比如输入 `..`）。
 - 每个 Agent 的工具只能动自己的文件夹。
 
@@ -879,8 +880,8 @@ MY-Agent-workspace/
 
 #### ▶ 阶段 B：地基
 
-- [ ] B1 运行上下文 `ctx`：工具多收一个参数，不再认死一个工作区；门禁的根目录改成这个 Agent 自己的文件夹，另外只读公共的 `user/`（改 5 个工具、`guard.py`、`gate.py`、`loop.py`）
-- [ ] B2 数据库 `state.db`（SQLite，Python 自带）：`bots`（档案）、`sessions`（会话）、`session_members`（成员名单）三张表，都带 `owner` 列
+- [ ] B1 运行上下文 `ctx`：工具多收一个参数，不再认死一个工作区；门禁的根目录改成这个 Agent 自己的文件夹，另外只读公共的 `user/`（改 5 个工具、`guard.py`、`gate.py`、`loop.py`）。递 `ctx` 已做完（2026-11-17）；只读公共 `user/` 等 B3 分完文件夹再做
+- [x] B2 数据库 `state.db`（SQLite，Python 自带）：`bots`（档案）、`sessions`（会话）、`session_members`（成员名单）三张表，都带 `owner` 列。代码在 `agents/store/sessions.py`：`connect()` 打开并建表，`backup_db()` 一天备份一份、留 7 份。门禁拦住 `state.db` 开头的文件名。启动时调用它们留到 B3 接上
 - [ ] B3 工作区改成 `user/` + `bots/<编号>/`，文件夹由代码创建；`ensure_workspace()` 把现在的主 bot 搬成第一个 Agent
 - [x] `run_agent` 的审批函数做成参数（`approver`，飞书入口传的是"一律拒绝"）
 - [ ] B4 最小的评测脚本：`evals/run.py`、`evals/graders.py`，第 1 道题

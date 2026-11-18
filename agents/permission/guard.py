@@ -10,6 +10,9 @@ def safe_path(ctx, path):
         return None
     if target.name.startswith(".env"):
         return None
+    # 数据库和它的备份只许代码读写，工具不能碰。Windows 不分大小写，所以先转小写再比
+    if target.name.lower().startswith("state.db"):
+        return None
     return target
 
 if __name__ == "__main__":
@@ -21,3 +24,6 @@ if __name__ == "__main__":
     print(safe_path(ctx, "../a.md"))      # 应该是 None
     print(safe_path(ctx, ".git/config"))          # 应该是 None
     print(safe_path(ctx, ".GIT/hooks/pre-commit"))  # 应该是 None
+    print(safe_path(ctx, "state.db"))               # 应该是 None
+    print(safe_path(ctx, "STATE.DB"))               # 应该是 None
+    print(safe_path(ctx, "db-backups/state.db.2026-11-17.bak"))  # 应该是 None
