@@ -1,4 +1,4 @@
-from agents.tools.guard import safe_path, PROTECTED
+from agents.permission.guard import safe_path, PROTECTED
 
 WRITE_FILE_TOOL = {
     "name": "write_file",

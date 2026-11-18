@@ -1,4 +1,4 @@
-from agents.tools.guard import safe_path
+from agents.permission.guard import safe_path
 
 MAX_CHARS = 5000
 

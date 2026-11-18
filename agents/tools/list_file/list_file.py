@@ -1,4 +1,4 @@
-from agents.tools.guard import safe_path
+from agents.permission.guard import safe_path
 
 LIST_FILE_TOOL = {
     "name": "list_file",

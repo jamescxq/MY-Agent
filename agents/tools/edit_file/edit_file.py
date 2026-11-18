@@ -1,4 +1,4 @@
-from agents.tools.guard import safe_path, PROTECTED
+from agents.permission.guard import safe_path, PROTECTED
 
 EDIT_FILE_TOOL = {
     "name": "edit_file",

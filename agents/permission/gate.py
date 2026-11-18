@@ -1,4 +1,4 @@
-from agents.tools.guard import safe_path
+from agents.permission.guard import safe_path
 
 def need_approval(name, args):
     if name not in ("write_file", "edit_file"):

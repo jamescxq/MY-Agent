@@ -116,8 +116,8 @@ MY-Agent/
 ├── config.py             路径、模型配置
 ├── agents/
 │   ├── loop.py           智能体内核 run_agent()
-│   ├── tools/            工具，以及路径校验 guard.py
-│   ├── permission/       审批门
+│   ├── tools/            工具
+│   ├── permission/       路径校验 guard.py、审批门 gate.py
 │   ├── audit/            审计日志
 │   ├── memory/           每日对话记录
 │   ├── context/          上下文裁剪

@@ -639,7 +639,7 @@ MY-Agent/
 │  │  ├─ todo/  dispatch/  schedule/                                    分工、定时
 │  │  └─ __init__.py          工具登记处
 │  ├─ permission/             "能不能做"
-│  │  ├─ guard.py             门禁（现在还在 tools/ 下，阶段 A 搬过来）
+│  │  ├─ guard.py             门禁
 │  │  ├─ gate.py              审批
 │  │  ├─ risk.py              风险分级表
 │  │  └─ taint.py             不可信内容标记
@@ -827,10 +827,10 @@ MY-Agent-workspace/
 
 #### ✅ 阶段 2：安全
 
-- [x] 权限检查：只能动 workspace 里的文件，路径先规范化再判断（`agents/tools/guard.py`）
+- [x] 权限检查：只能动 workspace 里的文件，路径先规范化再判断（`agents/permission/guard.py`）
 - [x] 审批门：危险操作先问 y/n（`agents/permission/gate.py`）
 - [x] 最大步数、工具出错返回文字而不是崩溃
-- [x] 凭据不进上下文：密钥只放 `.env`，工具不能访问 `.env` 开头的文件（`agents/tools/guard.py`）。拦不住聊天里粘贴的密钥，也拦不住写在其他文件里的密钥
+- [x] 凭据不进上下文：密钥只放 `.env`，工具不能访问 `.env` 开头的文件（`agents/permission/guard.py`）。拦不住聊天里粘贴的密钥，也拦不住写在其他文件里的密钥
 - [x] 审计日志：每次工具调用记录时间、工具名、路径、是否审批、是否成功；只记摘要，不记完整正文和凭据，日志不放 C 盘（`agents/audit/audit.py`）。`success` 表示工具调用没有报错，不代表事情做成了
 
 对照 CowAgent：`agent/permission/policy.py`，以及反斜杠漏洞（`shlex` posix 模式吃掉反斜杠）
@@ -845,18 +845,18 @@ MY-Agent-workspace/
 
 ### 接下来
 
-#### ▶ 阶段 A：整理
+#### ✅ 阶段 A：整理
 
-- [ ] `agents/tools/guard.py` 搬到 `agents/permission/guard.py`（IDEA 的"重构 → 移动"会自动改 import）
+- [x] `agents/tools/guard.py` 搬到 `agents/permission/guard.py`，5 处 import 跟着改（`gate.py` 和 4 个文件工具）
 
 验收：各工具底部的测试结果和搬之前一样；`chat.py` 正常聊天、读写文件。
 
-#### 阶段 B：地基
+#### ▶ 阶段 B：地基
 
 - [ ] 运行上下文 `ctx`：工具多收一个参数，不再认死一个工作区（改 5 个工具、`guard.py`、`gate.py`、`loop.py`）
 - [ ] 工作区改成 `user/` + `bots/main/`，`ensure_workspace()` 自动搬旧文件
 - [ ] 档案 `bot.json`
-- [ ] `run_agent` 的审批函数做成参数
+- [x] `run_agent` 的审批函数做成参数（`approver`，飞书入口传的是"一律拒绝"）
 - [ ] 最小的评测脚本：`evals/run.py`、`evals/graders.py`，第 1 道题
 
 验收：旧记忆自动搬到新位置，一字不差；它还认识用户；评测脚本能跑通第 1 道题，故意写错检查项时会报"不通过"；跑完评测后真的工作区没有变化。
