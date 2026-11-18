@@ -30,8 +30,10 @@ EDIT_FILE_TOOL = {
 }
 
 def edit_file(ctx, path, old_text, new_text):
-    target = safe_path(ctx, path)
+    target = safe_path(ctx, path, write=True)
     if target is None:
+        if safe_path(ctx, path) is not None:
+            return f"拒绝：{path} 在公共的 user/ 里，你只能读，不能改"
         return f"拒绝：{path} 不在 workspace 里"
     if target.name in PROTECTED:
         return f"拒绝：{path} 受保护，不能修改"

@@ -43,6 +43,6 @@ if __name__ == "__main__":
     from agents.bots import main_ctx
 
     ctx = main_ctx()
-    print(read_file(ctx, "USER.md"))
+    print(read_file(ctx, "user/USER.md"))
     print(read_file(ctx, "../config.py"))
     print(read_file(ctx, "不存在.md"))

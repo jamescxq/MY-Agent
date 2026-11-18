@@ -1,35 +1,30 @@
-# python自带工具Path 专门用来处理文件路径：拼路径、判断文件存不存在、读文件
-import shutil
-from config import WORKSPACE,TEMPLATES
-from pathlib import Path
+from config import TEMPLATES
+from agents.bots import ensure_workspace
 
-FILES = ["RULE.md", "AGENT.md", "USER.md", "BOOTSTRAP.md", "MEMORY.md"]
-PROFILE_FILES = ["AGENT.md", "USER.md", "MEMORY.md"]    # 每个人自己一份的档案
 PLACEHOLDER = "*(在首次对话时填写，可以是用户给你起的名字)*"
 
-def ensure_workspace():
-    is_new = not(WORKSPACE / "AGENT.md").exists()
-    WORKSPACE.mkdir(exist_ok=True)
-    for name in PROFILE_FILES:
-        path = WORKSPACE / name
-        if not path.exists():
-            shutil.copy(TEMPLATES / name, path)
-    if is_new:
-        shutil.copy(TEMPLATES / "BOOTSTRAP.md", WORKSPACE/ "BOOTSTRAP.md")
+def prompt_files(ctx):
+    """提示词由哪些文件拼成，按顺序。左边是给模型看的名字（也是工具里用的路径），右边是文件真正的位置。"""
+    return [
+        ("RULE.md", TEMPLATES / "RULE.md"),                 # 公共规则，不在工作区里
+        ("AGENT.md", ctx.folder / "AGENT.md"),              # 这个 Agent 的人设
+        ("user/USER.md", ctx.user_folder / "USER.md"),      # 用户的基本信息，所有 Agent 共用
+        ("BOOTSTRAP.md", ctx.folder / "BOOTSTRAP.md"),      # 首次引导，完成后会被删掉
+        ("user/MEMORY.md", ctx.user_folder / "MEMORY.md"),  # 关于用户的记忆，所有 Agent 共用
+        ("MEMORY.md", ctx.folder / "MEMORY.md"),            # 这个 Agent 自己的工作经验
+    ]
 
-def onboarding_done():
-    agents = WORKSPACE / "AGENT.md"
-    text = agents.read_text(encoding='utf-8')
+def onboarding_done(ctx):
+    text = (ctx.folder / "AGENT.md").read_text(encoding='utf-8')
     return PLACEHOLDER not in text
 
-def build_system_prompt():
+def build_system_prompt(ctx):
     ensure_workspace()
     parts = []
-    for name in FILES:
-        path = TEMPLATES / name if name == "RULE.md" else WORKSPACE / name
+    for name, path in prompt_files(ctx):
         if not path.exists():
             continue
-        if name == "BOOTSTRAP.md" and onboarding_done():
+        if name == "BOOTSTRAP.md" and onboarding_done(ctx):
             path.unlink()
             print("【系统】初始化已完成，已删除 BOOTSTRAP.md")
             continue
@@ -38,9 +33,9 @@ def build_system_prompt():
     return "\n\n".join(parts)
 
 # 读取用户取给模型的名字
-def get_agent_name():
+def get_agent_name(ctx):
     default_name = "无嗣"
-    path = WORKSPACE / "AGENT.md"
+    path = ctx.folder / "AGENT.md"
 
     try:
         text = path.read_text(encoding="utf-8")
@@ -66,4 +61,5 @@ def get_agent_name():
     return default_name
 
 if __name__ == "__main__":
-    print(build_system_prompt())
+    from agents.bots import main_ctx
+    print(build_system_prompt(main_ctx()))

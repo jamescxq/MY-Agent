@@ -51,6 +51,20 @@ def connect(path=STATE_DB):
     return conn
 
 
+def register_bot(bot_id, name, description="", path=STATE_DB):
+    """在花名册里登记一个 Agent。已经登记过就什么都不做，返回 False。"""
+    conn = connect(path)
+    try:
+        cursor = conn.execute(
+            "INSERT OR IGNORE INTO bots (id, name, description) VALUES (?, ?, ?)",
+            (bot_id, name, description),
+        )
+        conn.commit()               # 提交了才真的写进文件
+        return cursor.rowcount == 1
+    finally:
+        conn.close()
+
+
 def backup_db(path=STATE_DB, folder=DB_BACKUPS):
     """把数据库另存一份：一天一份，只留最近 7 份。数据库还不存在就什么都不做。"""
     path = Path(path)

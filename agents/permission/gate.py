@@ -5,7 +5,7 @@ def need_approval(ctx, name, args):
         return False
     if name == "edit_file" and args.get("old_text", "") == "":
         return False
-    target = safe_path(ctx, args.get("path",""))
+    target = safe_path(ctx, args.get("path",""), write=True)
     return target is not None and target.is_file()
 
 def ask_user(name, args):

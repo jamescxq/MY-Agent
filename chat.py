@@ -9,8 +9,8 @@ from agents.context import trim_messages
 
 messages = []
 last_input = ""
-system_prompt = build_system_prompt()
 ctx = main_ctx()      # 工牌：现在只有主 bot 一个
+system_prompt = build_system_prompt(ctx)
 backup_workspace("启动时备份")
 # 是否存在因接口异常而中断的请求
 pending_retry = False
@@ -74,8 +74,8 @@ while True:
         pending_retry = True
     else:
         pending_retry = False
-        print(f"{get_agent_name()}：", reply)
-        write_daily(last_input, reply)
+        print(f"{get_agent_name(ctx)}：", reply)
+        write_daily(ctx, last_input, reply)
         backup_workspace("对话后自动备份")
     if pending_retry:
         print("对话还在，输入 /retry 可以重试。")

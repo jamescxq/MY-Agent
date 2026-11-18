@@ -36,6 +36,7 @@ seen = set()               # 处理过的消息编号，用来去重
 conversations = {}         # 每个会话各自的对话历史
 system_prompt = ""         # 启动时生成一次，之后不变
 api = None                 # 用来往飞书发消息
+ctx = main_ctx()           # 工牌：飞书入口现在只有主 bot
 
 
 def deny(name, args):
@@ -85,15 +86,15 @@ def handle(chat_id, text):
     before = len(messages)
     messages.append({"role": "user", "content": text})
     try:
-        reply = run_agent(main_ctx(), system_prompt, TOOLS, messages, approver=deny)
+        reply = run_agent(ctx, system_prompt, TOOLS, messages, approver=deny)
     except anthropic.APIError as exc:
         del messages[before:]      # 这一轮没做成，从历史里拿掉，下次重新来
         print(f"【系统】模型接口异常：{type(exc).__name__}")
         return "模型接口出错了，这条我没处理。过一会儿再发一次。"
     if reply.strip().startswith(NO_REPLY):
-        write_daily(text, "（没有回复）")
+        write_daily(ctx, text, "（没有回复）")
         return None
-    write_daily(text, reply)
+    write_daily(ctx, text, reply)
     backup_workspace("飞书对话后自动备份")
     return reply
 
@@ -112,9 +113,9 @@ def worker():
             print(f"【系统】处理消息时出错：{type(exc).__name__}：{exc}")
             reply = "处理这条消息时出错了，回电脑上看一下终端。"
         if reply is None:
-            print(f"{get_agent_name()}：（决定不回复）")
+            print(f"{get_agent_name(ctx)}：（决定不回复）")
             continue
-        print(f"{get_agent_name()}：", reply)
+        print(f"{get_agent_name(ctx)}：", reply)
         send(chat_id, reply)
 
 
@@ -126,7 +127,7 @@ def main():
     if not FEISHU_OWNER_ID:
         print("没有配置：.env 里缺少 FEISHU_OWNER_ID。为了安全，不知道主人是谁就不启动")
         return
-    system_prompt = build_system_prompt() + FEISHU_RULE
+    system_prompt = build_system_prompt(ctx) + FEISHU_RULE
     backup_workspace("启动时备份")
     api = lark.Client.builder().app_id(FEISHU_APP_ID).app_secret(FEISHU_APP_SECRET).build()
     threading.Thread(target=worker, daemon=True).start()

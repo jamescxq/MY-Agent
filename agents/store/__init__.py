@@ -1,1 +1,1 @@
-from .sessions import connect, backup_db
+from .sessions import connect, register_bot, backup_db
