@@ -1,7 +1,5 @@
 from config import TEMPLATES
-from agents.bots import ensure_workspace
-
-PLACEHOLDER = "*(在首次对话时填写，可以是用户给你起的名字)*"
+from agents.bots import ensure_workspace, PLACEHOLDER, read_name
 
 def prompt_files(ctx):
     """提示词由哪些文件拼成，按顺序。左边是给模型看的名字（也是工具里用的路径），右边是文件真正的位置。"""
@@ -37,33 +35,9 @@ def assemble_prompt(ctx):
         parts.append(f'<file name = "{name}">\n{text}\n</file>')
     return "\n\n".join(parts)
 
-# 读取用户取给模型的名字
+# 读取用户取给模型的名字。还没取名时用默认名字
 def get_agent_name(ctx):
-    default_name = "无嗣"
-    path = ctx.folder / "AGENT.md"
-
-    try:
-        text = path.read_text(encoding="utf-8")
-    except (OSError, UnicodeError):
-        return default_name
-
-    prefix = "- **名字**:"
-
-    for line in text.splitlines():
-        # 去掉首尾空白，同时兼容中文冒号
-        line = line.strip().replace("：", ":", 1)
-
-        if line.startswith(prefix):
-            # 取出冒号后面的名字
-            name = line[len(prefix):].strip()
-
-            # 还没填写名字时，使用默认名字
-            if not name or name == PLACEHOLDER:
-                return default_name
-
-            return name
-
-    return default_name
+    return read_name(ctx.folder) or "无嗣"
 
 if __name__ == "__main__":
     from agents.bots import main_ctx

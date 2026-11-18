@@ -655,6 +655,7 @@ MY-Agent/
 │  │  ├─ profile.py           档案长什么样
 │  │  ├─ registry.py          花名册：有哪些 Agent（读写数据库的 bots 表）
 │  │  ├─ create.py            新建：create_bot()，所有入口都调它
+│  │  ├─ commands.py          /new、/bots、/use 三个命令，命令行和飞书共用
 │  │  ├─ context.py           运行上下文 ctx
 │  │  └─ workspace.py         工作区的结构：第一次运行建好，旧结构搬成新结构
 │  ├─ prompt/
@@ -893,13 +894,13 @@ MY-Agent-workspace/
 
 #### 阶段 C：专属 Agent（命令行版）
 
-- [ ] `create_bot()`：所有入口共用，逻辑写在 `agents/bots/`
-- [ ] 命令行的 `/new 名字`、`/bots`、`/use 名字`
-- [ ] Agent 手里的"新建"工具：用户亲口要求时直接建；删除要确认
-- [ ] 新建时调一次模型生成人设
-- [ ] 主动打招呼，分领域词和非领域词
-- [ ] 能力包目录和加载；每个 Agent 的工具清单按能力包生成
-- [ ] 主 bot 首次引导：取名 + 选能力
+- [x] C1 `create_bot()`：所有入口共用，逻辑写在 `agents/bots/`（`create.py`）。名字只存进档案和 `AGENT.md`，不当文件夹名；编号由代码起：名字本身是合法的英文编号就直接用，否则 `bot-1`、`bot-2`……
+- [x] C1 命令行的 `/new 名字`、`/bots`、`/use 名字`：命令在 `agents/bots/commands.py` 的 `handle_command()`，`chat.py` 只调用它；每个 Agent 各有一段对话历史，切走再切回来接着聊。花名册里的名字启动时跟着各自的 `AGENT.md` 同步
+- [ ] C4 Agent 手里的"新建"工具：用户亲口要求时直接建；删除要确认
+- [ ] C2 新建时调一次模型生成人设
+- [ ] C2 主动打招呼，分领域词和非领域词
+- [ ] C3 能力包目录和加载；每个 Agent 的工具清单按能力包生成
+- [ ] C5 主 bot 首次引导：取名 + 选能力
 
 验收：`/new 编程工程师` 后它先开口介绍自己；新 Agent 写的记忆在它自己的文件夹里，主 bot 的没变；`/new ..` 被拒绝；取名"小白"时它做通用介绍；它不会说自己能管邮件。
 

@@ -2,6 +2,7 @@ import shutil
 from config import WORKSPACE, USER_DIR, BOTS_DIR, TEMPLATES
 from agents.memory.backup import backup_workspace
 from agents.store import register_bot, backup_db
+from .registry import sync_names
 
 # 工作区长什么样：
 #   user/            用户层，所有 Agent 共用（USER.md、MEMORY.md）
@@ -52,7 +53,7 @@ def copy_if_missing(template, target):
 
 
 def ensure_workspace():
-    """启动时调用一次：搬旧结构、建文件夹、补上缺的模板、登记主 bot、备份数据库。"""
+    """启动时调用一次：搬旧结构、建文件夹、补上缺的模板、登记主 bot、同步名字、备份数据库。"""
     moved = migrate_old_layout()
     if moved:
         print("【系统】工作区已搬成新结构：")
@@ -73,6 +74,7 @@ def ensure_workspace():
 
     try:
         register_bot(MAIN, "主 bot", "默认的 Agent，什么都可以找它")
+        sync_names()          # 花名册里的名字跟着各自的 AGENT.md 走
         backup_db()
     except Exception as exc:
         print(f"【警告】数据库没准备好（{type(exc).__name__}：{exc}），不影响聊天")

@@ -65,6 +65,26 @@ def register_bot(bot_id, name, description="", path=STATE_DB):
         conn.close()
 
 
+def list_bots(path=STATE_DB):
+    """花名册里的全部 Agent，按登记的先后排。每个是一个字典，比如 {"id": "main", "name": "小牛", ...}"""
+    conn = connect(path)
+    try:
+        rows = conn.execute("SELECT * FROM bots ORDER BY rowid").fetchall()
+        return [dict(row) for row in rows]
+    finally:
+        conn.close()
+
+
+def rename_bot(bot_id, name, path=STATE_DB):
+    """改花名册里的名字。"""
+    conn = connect(path)
+    try:
+        conn.execute("UPDATE bots SET name = ? WHERE id = ?", (name, bot_id))
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def backup_db(path=STATE_DB, folder=DB_BACKUPS):
     """把数据库另存一份：一天一份，只留最近 7 份。数据库还不存在就什么都不做。"""
     path = Path(path)

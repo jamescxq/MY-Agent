@@ -1,7 +1,7 @@
 import anthropic
 
-from agents.bots import main_ctx
-from agents.prompt.builder import build_system_prompt, get_agent_name
+from agents.bots import main_ctx, ctx_for, handle_command
+from agents.prompt.builder import build_system_prompt, assemble_prompt, get_agent_name
 from agents.loop import run_agent
 from agents.tools import TOOLS
 from agents.memory import write_daily, backup_workspace
@@ -14,8 +14,18 @@ system_prompt = build_system_prompt(ctx)
 backup_workspace("启动时备份")
 # 是否存在因接口异常而中断的请求
 pending_retry = False
+# 切走的 Agent 先存在这里：编号 → (工牌, 提示词, 对话历史)，切回来时接着聊
+parked = {}
+
+def open_talk(bot_id):
+    """切到一个 Agent：以前聊过就接着聊，没聊过就给它造工牌、拼提示词、开一段新对话。"""
+    if bot_id in parked:
+        return parked.pop(bot_id)
+    new_ctx = ctx_for(bot_id)
+    return new_ctx, assemble_prompt(new_ctx), []
 
 print("输入 /retry 重试中断的请求，输入 /exit 退出。")
+print("输入 /bots 看有哪些 Agent，/new 名字 新建一个，/use 名字 切换。")
 
 while True:
     try:
@@ -32,6 +42,17 @@ while True:
 
     if user_input == "/exit":
         break
+
+    # /new、/bots、/use 由 agents/bots 处理；别的话返回 None，照常交给模型
+    result = handle_command(user_input, ctx.bot_id)
+    if result is not None:
+        text, bot_id = result
+        print(text)
+        if bot_id != ctx.bot_id:
+            parked[ctx.bot_id] = (ctx, system_prompt, messages)     # 把现在这个 Agent 的对话存起来
+            ctx, system_prompt, messages = open_talk(bot_id)
+            pending_retry = False
+        continue
 
     if user_input == "/retry":
         if not pending_retry:

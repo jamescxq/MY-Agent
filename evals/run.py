@@ -23,8 +23,11 @@ from evals.graders import check
 from evals.tasks import ALL_TASKS
 
 
-def make_agent(root, files):
-    """在临时文件夹 root 里建一个 Agent：先放空白模板，再放这道题的初始文件。返回它的工牌。"""
+def make_agent(root, files, is_main=True):
+    """在临时文件夹 root 里建一个 Agent：先放空白模板，再放这道题的初始文件。返回它的工牌。
+
+    is_main=False 表示它是专属 Agent，不是主 bot：能读公共的 user/，不能改。
+    """
     ctx = Ctx(bot_id="eval", folder=root / "bots" / "eval", user_folder=root / "user", can_write_user=True)
     ctx.folder.mkdir(parents=True)
     ctx.user_folder.mkdir(parents=True)
@@ -38,6 +41,7 @@ def make_agent(root, files):
             raise ValueError(f"题目写错了：初始文件 {path} 不在 Agent 能碰到的地方")
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(content, encoding="utf-8")
+    ctx.can_write_user = is_main          # 初始文件放好以后，再按身份收回改 user/ 的权限
     return ctx
 
 
@@ -57,7 +61,7 @@ def run_once(task):
     """把一道题跑一次。返回 (对不对, 没通过的说明列表, 这次的结果)。"""
     answer = task.get("审批", True)
     with tempfile.TemporaryDirectory() as tmp:
-        ctx = make_agent(Path(tmp), task["初始文件"])
+        ctx = make_agent(Path(tmp), task["初始文件"], is_main=task.get("身份") != "专属")
         system = assemble_prompt(ctx)
         messages = []
         reply = ""
