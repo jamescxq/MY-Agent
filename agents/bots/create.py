@@ -1,9 +1,10 @@
 import re
 import shutil
 from config import STATE_DB, BOTS_DIR, TEMPLATES
-from agents.store import register_bot
+from agents.store import register_bot, set_description
 from .profile import Profile, PLACEHOLDER
 from .registry import all_bots
+from .persona import fill_persona
 
 # 新建一个专属 Agent。命令行的 /new、以后飞书的 /new、网页的按钮、Agent 手里的"新建"工具，
 # 调的都是这里的 create_bot()，所以从哪个入口建，结果都一样。
@@ -48,8 +49,12 @@ def make_id(name, bots, bots_dir):
     return f"bot-{number}"
 
 
-def create_bot(name, description="", db=STATE_DB, bots_dir=BOTS_DIR):
+def create_bot(name, description="", db=STATE_DB, bots_dir=BOTS_DIR, draft=None):
     """新建一个 Agent：建文件夹、放空白档案、在花名册里登记。返回它的档案。
+
+    draft 是"起草人设"的函数（persona.py 的 draft_persona，会调一次模型）。传了它，建好以后
+    就按名字起草人设填进 AGENT.md；不传就留着空白模板（测试时不想调模型就不传）。
+    起草没成功不影响新建：Agent 照样能用，人设可以以后在对话里让它自己改。
 
     名字不合格时抛出 ValueError，里面是给用户看的说明。
     """
@@ -71,7 +76,21 @@ def create_bot(name, description="", db=STATE_DB, bots_dir=BOTS_DIR):
     except Exception:
         shutil.rmtree(folder)                     # 没建成就把刚建的文件夹收拾掉，不留半成品
         raise
-    return Profile(id=bot_id, name=name, description=description)
+
+    suggested = []
+    if draft is not None:
+        try:
+            persona = draft(name, description)
+        except Exception as exc:                  # 模型接口出错、断网：不让它连累新建
+            print(f"【警告】人设没起草成（{type(exc).__name__}），先用空白模板")
+            persona = None
+        if persona:
+            fill_persona(folder, persona)
+            suggested = persona["packs"]
+            if not description and persona["description"]:
+                description = persona["description"]
+                set_description(bot_id, description, db)
+    return Profile(id=bot_id, name=name, description=description, suggested=suggested)
 
 
 if __name__ == "__main__":
@@ -98,3 +117,17 @@ if __name__ == "__main__":
 
         print([b.id for b in all_bots(db)])                           # 应该：['main', 'bot-1', 'coder', 'bot-2']
         print(sorted(p.name for p in bots_dir.iterdir()))             # 应该：['bot-1', 'bot-2', 'coder']，没有多余的文件夹
+
+        # 带上"起草人设"：这里用一个假的起草函数，不调模型
+        def fake_draft(name, description):
+            return {"domain": True, "role": "简历顾问", "personality": "细心、直接", "style": "先说结论", "description": "帮你改简历", "packs": ["notify"]}
+
+        bot = create_bot("简历顾问", db=db, bots_dir=bots_dir, draft=fake_draft)
+        print(bot.description, bot.suggested, all_bots(db)[-1].description)     # 应该：帮你改简历 ['notify'] 帮你改简历
+        print("- **角色**: 简历顾问" in (bots_dir / bot.id / "AGENT.md").read_text(encoding="utf-8"))   # 应该：True
+
+        def broken_draft(name, description):
+            raise RuntimeError("假装断网")
+
+        bot = create_bot("旺财", db=db, bots_dir=bots_dir, draft=broken_draft)   # 应该：打印一行警告，但照样建成
+        print(bot.id, bot.suggested, (bots_dir / bot.id / "AGENT.md").exists())  # 应该：bot-4 [] True

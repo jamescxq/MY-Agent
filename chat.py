@@ -1,6 +1,6 @@
 import anthropic
 
-from agents.bots import main_ctx, ctx_for, handle_command
+from agents.bots import main_ctx, ctx_for, handle_command, is_fresh, OPENING, OPENING_NOTE
 from agents.prompt.builder import build_system_prompt, assemble_prompt, get_agent_name
 from agents.loop import run_agent
 from agents.capabilities import tools_for
@@ -46,6 +46,7 @@ while True:
 
     # /new、/bots、/use、/packs 由 agents/bots 处理；别的话返回 None，照常交给模型
     result = handle_command(user_input, ctx.bot_id)
+    greeting = False        # 这一轮是不是"新 Agent 先开口"
     if result is not None:
         text, bot_id, restart = result
         print(text)
@@ -56,9 +57,15 @@ while True:
         if restart or bot_id != ctx.bot_id:
             ctx, system_prompt, tools, messages = open_talk(bot_id)
             pending_retry = False
-        continue
+            greeting = not messages and is_fresh(ctx)      # 一句话都没说过的 Agent：让它先打招呼
+        if not greeting:
+            continue
 
-    if user_input == "/retry":
+    if greeting:
+        # 代码替用户发一条开场指令，它的回答就是招呼。往下走的是和普通对话同一条路
+        last_input = OPENING_NOTE
+        messages.append({"role": "user", "content": OPENING})
+    elif user_input == "/retry":
         if not pending_retry:
             print("我觉得目前没有需要重试的请求哦。")
             continue

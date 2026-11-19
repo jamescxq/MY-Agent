@@ -104,6 +104,16 @@ def rename_bot(bot_id, name, path=STATE_DB):
         conn.close()
 
 
+def set_description(bot_id, description, path=STATE_DB):
+    """改花名册里那句"它是干什么的"。"""
+    conn = connect(path)
+    try:
+        conn.execute("UPDATE bots SET description = ? WHERE id = ?", (description, bot_id))
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def set_packs(bot_id, packs, path=STATE_DB):
     """改花名册里"启用的能力包"。packs 是一个列表，存的时候转成一段 JSON 文字。"""
     conn = connect(path)

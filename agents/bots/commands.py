@@ -1,5 +1,6 @@
 from agents.capabilities import load_packs, enabled_ids
 from .create import create_bot
+from .persona import draft_persona
 from .registry import all_bots, get_bot, find_bot, save_packs
 
 # 管理 Agent 的命令：/new、/bots、/use、/packs，飞书里还有 /join、/leave。
@@ -13,6 +14,24 @@ MAIN = "main"
 def name_of(bot_id):
     bot = get_bot(bot_id)
     return bot.name if bot else bot_id
+
+
+def created_text(bot):
+    """新建成功以后告诉用户的话：建了什么，和它相关的能力现在是什么状态。
+
+    能力只提醒、不替用户打开：要不要开由用户决定。
+    """
+    lines = [f"已新建「{bot.name}」（编号 {bot.id}）" + (f"：{bot.description}" if bot.description else "。")]
+    packs = {pack.id: pack for pack in load_packs()}
+    for pack_id in bot.suggested:
+        pack = packs.get(pack_id)
+        if pack is None:
+            continue
+        if pack.available:
+            lines.append(f"和它相关的能力「{pack.name}」现在没开，想让它用就输入 /packs 打开。")
+        else:
+            lines.append(f"和它相关的能力「{pack.name}」还没接入，现在用不了。")
+    return "\n".join(lines)
 
 
 def handle_session_command(text, members):
@@ -41,11 +60,11 @@ def handle_session_command(text, members):
         if not arg:
             return "用法：/new 名字，比如 /new 编程工程师", members, []
         try:
-            bot = create_bot(arg)
+            bot = create_bot(arg, draft=draft_persona)
         except ValueError as exc:
             return f"没有建成：{exc}", members, []
         joined = members + [bot.id]
-        return f"已新建「{bot.name}」（编号 {bot.id}），它加入了这个会话。现在的成员：{roster(joined)}。", joined, []
+        return f"{created_text(bot)}\n它加入了这个会话。现在的成员：{roster(joined)}。", joined, []
 
     if command in ("/join", "/leave", "/use"):
         if not arg:
@@ -111,10 +130,10 @@ def handle_command(text, current_id):
         if not arg:
             return "用法：/new 名字，比如 /new 编程工程师", current_id, False
         try:
-            bot = create_bot(arg)
+            bot = create_bot(arg, draft=draft_persona)
         except ValueError as exc:
             return f"没有建成：{exc}", current_id, False
-        return f"已新建「{bot.name}」（编号 {bot.id}）。现在是在和它对话，/bots 可以看全部。", bot.id, False
+        return f"{created_text(bot)}\n现在是在和它对话，/bots 可以看全部。", bot.id, False
 
     if command == "/use":
         if not arg:

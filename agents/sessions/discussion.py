@@ -70,6 +70,19 @@ class Room:
             return "\n\n".join(text if speaker == USER else f"【{speaker}】{text}" for speaker, text in lines)
         return "\n\n".join(f"【{speaker}】{text}" for speaker, text in lines)
 
+    def greet(self, member, opening, run, emit):
+        """让一个新成员先开口打招呼。
+
+        opening 是代码替用户发的开场指令，只给它一个人看，不进共享记录；
+        它说的招呼进共享记录，别的成员下次看的时候能看到，但不会因为这句招呼被叫起来。
+        """
+        reply = run(member, opening)
+        if reply is None:
+            return
+        self.log.append((member.name, reply))
+        member.seen = len(self.log)
+        emit(member, reply)
+
     def discuss(self, text, run, emit, stopped=lambda: False, speaker=USER):
         """有人说了一句话，让成员们讨论。
 

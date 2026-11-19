@@ -25,7 +25,7 @@ import lark_oapi as lark
 from lark_oapi.api.im.v1 import CreateMessageRequest, CreateMessageRequestBody
 
 from config import FEISHU_APP_ID, FEISHU_APP_SECRET, FEISHU_OWNER_ID, feishu_app
-from agents.bots import all_bots, ctx_for, handle_session_command, ensure_workspace
+from agents.bots import all_bots, ctx_for, handle_session_command, ensure_workspace, is_fresh, OPENING, OPENING_NOTE
 from agents.prompt.builder import assemble_prompt, get_agent_name
 from agents.loop import run_agent
 from agents.permission import describe
@@ -273,8 +273,10 @@ def open_room(chat_id):
     return rooms[chat_id]
 
 
-def run(member, content, chat_id, guest_id=""):
+def run(member, content, chat_id, guest_id="", note=None):
     """让一个成员看 content，返回它说的话；它决定不接话时返回 None。
+
+    note 不是空的时候，每日记录里用它代替 content（开场指令很长，记一句"它先开口"就够了）。
 
     guest_id 不是空的，表示这一轮是访客引起的：给它一张标了"访客在说话"的工牌，
     门禁看到这个标记，就不让工具碰别的访客的文件夹，也不让用允许名单以外的工具。
@@ -290,10 +292,34 @@ def run(member, content, chat_id, guest_id=""):
         del messages[before:]      # 这一轮没做成，从历史里拿掉，下次重新来
         raise
     if reply.strip().startswith(NO_REPLY):
-        write_daily(member.ctx, content, "（没有回复）")
+        write_daily(member.ctx, note or content, "（没有回复）")
         return None
-    write_daily(member.ctx, content, reply)
+    write_daily(member.ctx, note or content, reply)
     return reply
+
+
+def speak(chat_id, member, reply):
+    """把一个成员说的话发到飞书里。"""
+    print(f"回复（飞书）：【{member.name}】{reply}")
+    send_as(chat_id, member.ctx.bot_id, member.name, reply)
+
+
+def welcome(chat_id, newcomers):
+    """刚加入这个会话、而且一句话都没说过的 Agent，让它们先开口打招呼。newcomers 是它们的编号。"""
+    room = open_room(chat_id)
+    for member in room.members:
+        if member.ctx.bot_id not in newcomers:
+            continue
+        try:
+            room.greet(
+                member, OPENING,
+                lambda who, content: run(who, content, chat_id, note=OPENING_NOTE),
+                lambda who, reply: speak(chat_id, who, reply),
+            )
+        except anthropic.APIError as exc:
+            print(f"【系统】模型接口异常：{type(exc).__name__}")
+            send(chat_id, f"「{member.name}」的招呼没发出来（模型接口出错）。直接和它说话就行。")
+    backup_workspace("飞书对话后自动备份")
 
 
 def handle(chat_id, text, guest=None, mentioned=()):
@@ -331,11 +357,17 @@ def handle(chat_id, text, guest=None, mentioned=()):
             rooms.clear()
             for key in [key for key in solo if key[1] in changed]:
                 del solo[key]
-        return reply
+        # 新加入的成员里，一句话都没说过的（刚新建的）先开口打招呼
+        newcomers = [bot_id for bot_id in new_ids if bot_id not in ids and is_fresh(ctx_for(bot_id))]
+        if not newcomers:
+            return reply
+        print("回复（飞书）：", reply)
+        send(chat_id, reply)               # 先把命令的结果发出去，再让新成员说话
+        welcome(chat_id, newcomers)
+        return None
 
     def emit(member, reply):
-        print(f"回复（飞书）：【{member.name}】{reply}")
-        send_as(chat_id, member.ctx.bot_id, member.name, reply)
+        speak(chat_id, member, reply)
 
     room = open_room(chat_id)
     stopped = lambda: chat_id in stop_requests

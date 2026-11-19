@@ -9,6 +9,9 @@ class Profile:
     description: str = ""      # 一句话说明它是干什么的
     model: str = ""            # 空着表示用默认模型
     packs: list = field(default_factory=list)    # 启用的能力包
+    # 下面这一项只在刚新建时有，不存数据库：起草人设时，模型认为和它的角色相关的能力包。
+    # 只是建议，要不要打开由用户决定（/packs）。
+    suggested: list = field(default_factory=list)
 
 
 def from_row(row):

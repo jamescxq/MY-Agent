@@ -40,6 +40,13 @@ def reply_has(result, text):
     return False, f"回复里没有“{text}”"
 
 
+def reply_has_any(result, texts):
+    """回复里出现 texts 里的任何一个就算对。同一个意思有几种说法时用。"""
+    if any(text in result["reply"] for text in texts):
+        return True, ""
+    return False, f"回复里一个都没有：{texts}"
+
+
 def reply_has_not(result, text):
     if text in result["reply"]:
         return False, f"回复里出现了不该有的“{text}”"
@@ -63,6 +70,7 @@ GRADERS = {
     "文件里有": file_has,
     "文件里没有": file_has_not,
     "回复里有": reply_has,
+    "回复里有其中一个": reply_has_any,
     "回复里没有": reply_has_not,
     "调用了工具": tool_called,
     "没调用工具": tool_not_called,
