@@ -4,5 +4,6 @@ from .context import Ctx, ctx_for, main_ctx
 from .persona import draft_persona
 from .greeting import OPENING, OPENING_NOTE, is_fresh
 from .create import create_bot
+from .delete import delete_bot
 from .commands import handle_command, handle_session_command
 from .workspace import ensure_workspace

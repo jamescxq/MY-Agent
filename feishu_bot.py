@@ -1,7 +1,7 @@
 # 入口：飞书。你在飞书里发的消息交给 Agent，它的回复发回飞书。
 # 一个飞书会话（群或单聊）有一份成员名单，默认只有主 bot。
 # /bots 看有哪些，/join 名字 让它加入，/leave 名字 让它离开，/use 名字 只留一个，
-# /new 名字 新建并加入，/packs 看能力，/stop 让它们停下。
+# /new 名字 新建并加入，/delete 名字 删除（要再确认一次），/packs 看能力，/stop 让它们停下。
 #
 # 谁的话算数：只有主人（FEISHU_OWNER_ID）能用命令。
 # 群里别的人默认被忽略；主人用 /guest @某人 把他请成访客以后，他可以和 Agent 聊天、让 Agent 干活
@@ -365,6 +365,11 @@ def handle(chat_id, text, guest=None, mentioned=()):
         send(chat_id, reply)               # 先把命令的结果发出去，再让新成员说话
         welcome(chat_id, newcomers)
         return None
+
+    # 斜杠开头、但哪个命令都不是（多半是打错了，比如 /bot）：直接提示。
+    # 不交给成员们：不然每个 Agent 都要调一次模型，而且多半都不接话，看起来像没反应
+    if clean.startswith("/"):
+        return "没有这个命令。发 /bots 可以看有哪些 Agent 和能用的命令。"
 
     def emit(member, reply):
         speak(chat_id, member, reply)

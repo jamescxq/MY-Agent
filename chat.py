@@ -1,6 +1,6 @@
 import anthropic
 
-from agents.bots import main_ctx, ctx_for, handle_command, is_fresh, OPENING, OPENING_NOTE
+from agents.bots import main_ctx, ctx_for, get_bot, handle_command, is_fresh, OPENING, OPENING_NOTE
 from agents.prompt.builder import build_system_prompt, assemble_prompt, get_agent_name
 from agents.loop import run_agent
 from agents.capabilities import tools_for
@@ -26,7 +26,7 @@ def open_talk(bot_id):
     return new_ctx, assemble_prompt(new_ctx), tools_for(new_ctx), []
 
 print("输入 /retry 重试中断的请求，输入 /exit 退出。")
-print("输入 /bots 看有哪些 Agent，/new 名字 新建一个，/use 名字 切换，/packs 看能力。")
+print("输入 /bots 看有哪些 Agent，/new 名字 新建一个，/use 名字 切换，/delete 名字 删除，/packs 看能力。")
 
 while True:
     try:
@@ -58,8 +58,15 @@ while True:
             ctx, system_prompt, tools, messages = open_talk(bot_id)
             pending_retry = False
             greeting = not messages and is_fresh(ctx)      # 一句话都没说过的 Agent：让它先打招呼
+        for gone in [key for key in parked if get_bot(key) is None]:
+            del parked[gone]                # 被删掉的 Agent，存着的对话也丢掉
         if not greeting:
             continue
+
+    # 斜杠开头、但哪个命令都不是（多半是打错了）：直接提示，不交给模型
+    if result is None and user_input.startswith("/") and user_input != "/retry":
+        print("没有这个命令。输入 /bots 可以看有哪些 Agent 和能用的命令。")
+        continue
 
     if greeting:
         # 代码替用户发一条开场指令，它的回答就是招呼。往下走的是和普通对话同一条路

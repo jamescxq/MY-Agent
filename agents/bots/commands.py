@@ -1,14 +1,17 @@
 from agents.capabilities import load_packs, enabled_ids
+from config import feishu_app
 from .create import create_bot
+from .delete import delete_bot, file_count
 from .persona import draft_persona
 from .registry import all_bots, get_bot, find_bot, save_packs
 
-# 管理 Agent 的命令：/new、/bots、/use、/packs，飞书里还有 /join、/leave。
+# 管理 Agent 的命令：/new、/bots、/use、/packs、/delete，飞书里还有 /join、/leave。
 # 写在这里而不是入口里：命令的逻辑只有一份。
 #   handle_command()          给命令行用：一次只和一个 Agent 对话
 #   handle_session_command()  给飞书用：一个会话里可以有多个 Agent
 
 MAIN = "main"
+CONFIRM = "确认"        # /delete 名字 后面跟上这个词，才真的删
 
 
 def name_of(bot_id):
@@ -34,6 +37,42 @@ def created_text(bot):
     return "\n".join(lines)
 
 
+def delete_command(arg):
+    """/delete 名字：只说明会删掉什么，不动手；/delete 名字 确认：真的删。
+
+    返回 (要显示给用户的话, 被删掉的 Agent 的编号)。没删的时候编号是 None。
+    分两步是因为删了它的人设和记忆就都不在了，要用户看清楚再点头。
+    """
+    if not arg:
+        return "用法：/delete 名字。会先告诉你要删掉什么，你确认了才删", None
+    name, confirmed = arg, False
+    bot = find_bot(name)
+    if bot is None and arg.endswith(" " + CONFIRM):
+        name, confirmed = arg[:-len(CONFIRM)].strip(), True      # 去掉末尾的"确认"，前面才是名字
+        bot = find_bot(name)
+    if bot is None:
+        return f"没有叫「{name}」的 Agent。/bots 可以看有哪些", None
+    if bot.id == MAIN:
+        return "主 Agent 不能删。", None
+    if not confirmed:
+        return (
+            f"要删除「{bot.name}」（编号 {bot.id}）吗？\n"
+            f"它的人设、记忆和每日记录（共 {file_count(bot.id)} 个文件）会搬进回收站，花名册和所有会话里都不再有它。\n"
+            f"确认就发：/delete {bot.name} {CONFIRM}"
+        ), None
+    try:
+        where = delete_bot(bot.id)
+    except ValueError as exc:
+        return f"没有删成：{exc}", None
+    lines = [f"已删除「{bot.name}」。"]
+    if where is not None:
+        lines.append(f"它的文件搬到了工作区的回收站：{where.parent.name}/{where.name}，后悔了可以从那里拿回来。")
+    if feishu_app(bot.id):
+        key = bot.id.upper().replace("-", "_")
+        lines.append(f".env 里 FEISHU_APP_ID_{key}、FEISHU_APP_SECRET_{key} 这两行已经没用了，可以自己删掉；飞书群里它的机器人也要你自己移出去。")
+    return "\n".join(lines), bot.id
+
+
 def handle_session_command(text, members):
     """处理一条命令。members 是这个会话的成员名单（Agent 编号的列表）。
 
@@ -53,7 +92,7 @@ def handle_session_command(text, members):
             note = f"：{bot.description}" if bot.description else ""
             lines.append(f"{mark} {bot.name}（{bot.id}）{note}")
         lines.append("让它加入：/join 名字    让它离开：/leave 名字    只留一个：/use 名字")
-        lines.append("新建：/new 名字    看能力：/packs    让它们停下：/stop")
+        lines.append("新建：/new 名字    删除：/delete 名字    看能力：/packs    让它们停下：/stop")
         return "\n".join(lines), members, []
 
     if command == "/new":
@@ -85,6 +124,14 @@ def handle_session_command(text, members):
             return "这个会话只剩它一个了，不能再让它离开。想换人用 /use 名字", members, []
         left = [bot_id for bot_id in members if bot_id != bot.id]
         return f"「{bot.name}」离开了这个会话。现在的成员：{roster(left)}。", left, []
+
+    if command == "/delete":
+        reply, gone = delete_command(arg)
+        if gone is None:
+            return reply, members, []
+        # 这个会话里只有它一个的话，删掉以后换回主 Agent。第三样写上它的编号：所有会话里和它的旧对话都作废
+        left = [bot_id for bot_id in members if bot_id != gone] or [MAIN]
+        return reply, left, [gone]
 
     if command == "/packs":
         if len(members) == 1:
@@ -123,7 +170,7 @@ def handle_command(text, current_id):
             mark = "→" if bot.id == current_id else "  "
             note = f"：{bot.description}" if bot.description else ""
             lines.append(f"{mark} {bot.name}（{bot.id}）{note}")
-        lines.append("切换：/use 名字    新建：/new 名字    看能力：/packs")
+        lines.append("切换：/use 名字    新建：/new 名字    删除：/delete 名字    看能力：/packs")
         return "\n".join(lines), current_id, False
 
     if command == "/new":
@@ -149,6 +196,12 @@ def handle_command(text, current_id):
         if not arg:
             return show_packs(current_id), current_id, False
         return switch_pack(current_id, arg)
+
+    if command == "/delete":
+        reply, gone = delete_command(arg)
+        if gone == current_id:              # 删掉的就是正在对话的这个：回到主 Agent
+            return f"{reply}\n现在回到和「{name_of(MAIN)}」对话。", MAIN, False
+        return reply, current_id, False
 
     if command in ("/join", "/leave"):
         return "命令行里一次只和一个 Agent 对话，用 /use 名字 切换。多个 Agent 一起聊要在飞书里。", current_id, False

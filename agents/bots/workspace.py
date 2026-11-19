@@ -8,13 +8,14 @@ from .registry import sync_names
 #   user/            用户层，所有 Agent 共用（USER.md、MEMORY.md）
 #   bots/<编号>/     每个 Agent 自己的文件夹（AGENT.md、MEMORY.md、memory/）
 #   guests/<编号>/   每位访客一个文件夹（MEMORY.md），请了访客才会有，见 agents/sessions/guests.py
+#   trash/           回收站：删掉的 Agent 的文件夹搬到这里，删过才会有，见 delete.py
 #   state.db         数据库
 # 这个文件负责：第一次运行时把它建好；旧结构（所有文件都堆在根目录）自动搬成新结构。
 
 MAIN = "main"                                                     # 主 bot 的编号
 OLD_MARKERS = ["AGENT.md", "USER.md", "MEMORY.md", "BOOTSTRAP.md", "memory"]   # 根目录有这些，说明还是旧结构
 TO_USER = ["USER.md", "MEMORY.md"]                                # 这两个搬到 user/，其它的都搬到 bots/main/
-STAY = {"user", "bots", "guests", "skills", "db-backups", "schedules.json"}   # 这些留在根目录不动；点开头的（.git、.idea）也不动
+STAY = {"user", "bots", "guests", "trash", "skills", "db-backups", "schedules.json"}   # 这些留在根目录不动；点开头的（.git、.idea）也不动
 
 
 def migrate_old_layout():

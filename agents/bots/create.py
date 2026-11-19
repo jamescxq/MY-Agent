@@ -5,6 +5,7 @@ from agents.store import register_bot, set_description
 from .profile import Profile, PLACEHOLDER
 from .registry import all_bots
 from .persona import fill_persona
+from .delete import trashed_ids
 
 # 新建一个专属 Agent。命令行的 /new、以后飞书的 /new、网页的按钮、Agent 手里的"新建"工具，
 # 调的都是这里的 create_bot()，所以从哪个入口建，结果都一样。
@@ -39,7 +40,7 @@ def make_id(name, bots, bots_dir):
     名字本身就是合法的英文编号（比如 coder）就直接用；否则用 bot-1、bot-2……
     用户输入的名字不直接当文件夹名：里面可能有 .. 这样的危险写法。
     """
-    taken = {bot.id for bot in bots}
+    taken = {bot.id for bot in bots} | trashed_ids(bots_dir)     # 删掉的 Agent 的编号也不再用
     candidate = name.lower()
     if ID_PATTERN.match(candidate) and candidate not in taken | RESERVED_IDS and not (bots_dir / candidate).exists():
         return candidate

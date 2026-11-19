@@ -104,6 +104,18 @@ def rename_bot(bot_id, name, path=STATE_DB):
         conn.close()
 
 
+def remove_bot(bot_id, path=STATE_DB):
+    """把一个 Agent 从花名册里去掉，同时从所有会话的成员名单里去掉。它的文件夹不归这里管。"""
+    conn = connect(path)
+    try:
+        # 成员名单里的行指着花名册里的行，所以要先删名单，再删花名册
+        conn.execute("DELETE FROM session_members WHERE bot_id = ?", (bot_id,))
+        conn.execute("DELETE FROM bots WHERE id = ?", (bot_id,))
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def set_description(bot_id, description, path=STATE_DB):
     """改花名册里那句"它是干什么的"。"""
     conn = connect(path)
