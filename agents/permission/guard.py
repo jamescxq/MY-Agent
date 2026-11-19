@@ -5,11 +5,24 @@ PROTECTED = ["RULE.md"]
 def safe_path(ctx, path, write=False):
     """把模型给的路径变成真正的路径。不允许的返回 None。
 
-    user/ 开头的路径指向公共的 user/ 文件夹，其它路径都在这个 Agent 自己的文件夹里。
+    user/ 开头的路径指向公共的 user/ 文件夹，guests/ 开头的指向访客们的文件夹，
+    其它路径都在这个 Agent 自己的文件夹里。
     write=True 表示这次是要改文件：没有权限改 user/ 的 Agent 会被拒绝。
+    访客在说话的时候（ctx.guest 不是空的），guests/ 里只能碰他自己的那个文件夹，别的访客的不行；
+    其它路径和用户说话时一样（用户 2026-11-18 决定放开）。
     """
     parts = PurePosixPath(str(path).replace("\\", "/")).parts
-    if parts and parts[0].lower() == "user":
+    first = parts[0].lower() if parts else ""
+    if first == "guests" and ctx.guests_folder is not None:
+        if ctx.guest:
+            if len(parts) < 2 or parts[1].lower() != ctx.guest:
+                return None                     # 访客说话时，别的访客的文件夹不能碰
+            root = (ctx.guests_folder / ctx.guest).resolve()
+            path = "/".join(parts[2:])
+        else:
+            root = ctx.guests_folder.resolve()
+            path = "/".join(parts[1:])
+    elif first == "user":
         if write and not ctx.can_write_user:
             return None
         root = ctx.user_folder.resolve()
@@ -50,3 +63,16 @@ if __name__ == "__main__":
     print(safe_path(other, "user/USER.md"))              # 应该显示完整路径，可以读
     print(safe_path(other, "user/USER.md", write=True))  # 应该是 None，不能改
     print(safe_path(other, "../main/AGENT.md"))          # 应该是 None，读不到主 bot 的文件夹
+
+    # 访客的文件夹：用户说话时都能读写；访客 guest-1 说话时，guests/ 里只能碰他自己的那一个，别的路径和用户说话时一样
+    from dataclasses import replace
+    print(safe_path(ctx, "guests/guest-1/MEMORY.md", write=True))    # 应该显示完整路径，在 guests/guest-1/ 里
+    visiting = replace(ctx, guest="guest-1")
+    print(safe_path(visiting, "guests/guest-1/MEMORY.md", write=True))   # 应该显示完整路径
+    print(safe_path(visiting, "guests/guest-2/MEMORY.md"))               # 应该是 None，别的访客
+    print(safe_path(visiting, "guests/guest-1/../guest-2/MEMORY.md"))    # 应该是 None，想绕到别的访客那里
+    print(safe_path(visiting, "guests"))                                 # 应该是 None，不能看有哪些访客
+    print(safe_path(visiting, "user/USER.md", write=True))               # 应该显示完整路径：主 bot 能改 user/，访客说话时也一样
+    print(safe_path(visiting, "MEMORY.md", write=True))                  # 应该显示完整路径，Agent 自己的文件
+    print(safe_path(visiting, "../../config.py"))                        # 应该是 None
+    print(safe_path(visiting, "../../state.db"))                         # 应该是 None，数据库谁说话都碰不到

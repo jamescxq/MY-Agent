@@ -6,6 +6,7 @@ EDIT_FILE_TOOL = {
         "修改 workspace 里已有文件的一部分：把 old_text 替换成 new_text。"
         "old_text 必须和原文一字不差，并且在文件里只出现一次，不确定原文时先用 read_file 看。"
         "old_text 留空表示在文件末尾追加 new_text。"
+        "new_text 留空表示把 old_text 这段删掉。"
         "修改已有文件优先用这个工具，不要整个重写。"
     ),
     "input_schema": {
@@ -21,7 +22,7 @@ EDIT_FILE_TOOL = {
             },
             "new_text": {
                 "type": "string",
-                "description": "替换后的新内容",
+                "description": "替换后的新内容。留空表示删掉 old_text",
             },
         },
         "required": ["path", "old_text", "new_text"],

@@ -9,6 +9,7 @@ import argparse
 import shutil
 import sys
 import tempfile
+from dataclasses import replace
 from pathlib import Path
 
 import anthropic
@@ -20,6 +21,7 @@ from agents.permission.guard import safe_path
 from agents.prompt.builder import assemble_prompt
 from agents.tools import TOOL_FUNCTIONS
 from agents.capabilities import enabled_ids, tools_for
+from agents.sessions import guest_label, guest_rule
 from evals.graders import check
 from evals.tasks import ALL_TASKS
 
@@ -66,11 +68,21 @@ def run_once(task):
     with tempfile.TemporaryDirectory() as tmp:
         ctx = make_agent(Path(tmp), task["初始文件"], is_main=task.get("身份") != "专属", packs=task.get("能力包", ()))
         system = assemble_prompt(ctx)
+        speaking = ctx                      # 说话时用的工牌。访客说话时换成标了"访客在说话"的那张
+        label = ""
+        if task.get("访客"):                # 这道题里说话的不是用户，是一位访客
+            guest = {"id": "guest-1", "name": task["访客"]}
+            ctx.guests_folder = Path(tmp) / "guests"
+            (ctx.guests_folder / guest["id"]).mkdir(parents=True)
+            shutil.copy(TEMPLATES / "guest" / "MEMORY.md", ctx.guests_folder / guest["id"] / "MEMORY.md")
+            system += guest_rule([guest], alone=True, folder=ctx.guests_folder)
+            speaking = replace(ctx, guest=guest["id"])
+            label = f"【{guest_label(guest['name'])}】"
         messages = []
         reply = ""
         for text in task["用户说"]:
-            messages.append({"role": "user", "content": text})
-            reply = loop.run_agent(ctx, system, tools_for(ctx), messages, approver=lambda name, args: answer)
+            messages.append({"role": "user", "content": label + text})
+            reply = loop.run_agent(speaking, system, tools_for(ctx), messages, approver=lambda name, args: answer)
         result = {"ctx": ctx, "reply": reply, "tools": tools_called(messages)}
         problems = []
         for item in task["检查"]:           # 检查要在临时文件夹被删掉之前做

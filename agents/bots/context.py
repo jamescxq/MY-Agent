@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from pathlib import Path
-from config import USER_DIR, BOTS_DIR
+from config import USER_DIR, BOTS_DIR, GUESTS_DIR
 from agents.capabilities import enabled_ids
 from .registry import get_bot
 
@@ -14,6 +14,8 @@ class Ctx:
     user_folder: Path               # 公共的 user/ 文件夹，所有 Agent 都能读
     can_write_user: bool = False    # 能不能改 user/ 里的文件。只有主 bot 能
     packs: list = field(default_factory=list)    # 启用的能力包编号，比如 ["notes", "notify"]
+    guests_folder: Path = None      # 访客们的文件夹 guests/，每位访客一个子文件夹。没有就是 None
+    guest: str = ""                 # 现在是哪位访客在说话（他的编号，比如 guest-1）。空着表示是用户在说话
 
 def ctx_for(bot_id):
     """按编号造一张工牌：自己的文件夹是 bots/编号/，启用的能力包从花名册里查。只有主 bot 能改公共的 user/。"""
@@ -29,6 +31,7 @@ def ctx_for(bot_id):
         user_folder=USER_DIR,
         can_write_user=(bot_id == "main"),
         packs=enabled_ids(bot_id, chosen),
+        guests_folder=GUESTS_DIR,
     )
 
 def main_ctx():
