@@ -1,6 +1,6 @@
 import anthropic
 
-from agents.bots import main_ctx, ctx_for, get_bot, handle_command, opening_for, OPENING_NOTE
+from agents.bots import main_ctx, ctx_for, get_bot, handle_command, opening_for, take_newcomers, OPENING_NOTE
 from agents.prompt.builder import build_system_prompt, assemble_prompt, get_agent_name
 from agents.loop import run_agent
 from agents.capabilities import tools_for
@@ -123,6 +123,10 @@ while True:
         pending_retry = False
         print(f"{get_agent_name(ctx)}：", reply)
         write_daily(ctx, last_input, reply)
+        # 这一轮里它用工具新建了别的 Agent（你说"帮我建一个……"）：提醒一下怎么找到新来的
+        for bot_id in take_newcomers():
+            name = get_bot(bot_id).name
+            print(f"【系统】「{name}」建好了。输入 /use {name} 和它对话，它会先打招呼。")
         backup_workspace("对话后自动备份")
     if pending_retry:
         print("对话还在，输入 /retry 可以重试。")

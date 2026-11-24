@@ -17,6 +17,23 @@ ID_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]{0,31}$")    # 编号只许小写字
 RESERVED_IDS = {"con", "prn", "aux", "nul"} | {f"com{i}" for i in range(1, 10)} | {f"lpt{i}" for i in range(1, 10)}
 
 
+# Agent 用工具（create_agent）新建出来的，先记在这里。工具只管建，不知道自己在哪个会话里；
+# 入口（命令行、飞书）处理完这一轮以后来取走，再让新 Agent 进会话、先开口打招呼。
+newcomers = []
+
+
+def note_newcomer(bot_id):
+    """记一笔：这个 Agent 是刚刚用工具新建出来的。"""
+    newcomers.append(bot_id)
+
+
+def take_newcomers():
+    """取走这一轮里用工具新建出来的 Agent 的编号，取完清空。"""
+    taken = list(newcomers)
+    newcomers.clear()
+    return taken
+
+
 def check_name(name, bots):
     """检查用户给的名字。有问题返回一句说明，没问题返回 None。"""
     if not name:

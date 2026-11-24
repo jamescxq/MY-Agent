@@ -25,7 +25,7 @@ import lark_oapi as lark
 from lark_oapi.api.im.v1 import CreateMessageRequest, CreateMessageRequestBody
 
 from config import FEISHU_APP_ID, FEISHU_APP_SECRET, FEISHU_OWNER_ID, feishu_app
-from agents.bots import all_bots, ctx_for, handle_session_command, ensure_workspace, is_fresh, OPENING, OPENING_NOTE
+from agents.bots import all_bots, ctx_for, handle_session_command, ensure_workspace, is_fresh, take_newcomers, OPENING, OPENING_NOTE
 from agents.prompt.builder import assemble_prompt, get_agent_name
 from agents.loop import run_agent
 from agents.permission import describe
@@ -387,7 +387,17 @@ def handle(chat_id, text, guest=None, mentioned=()):
             )
     except anthropic.APIError as exc:
         print(f"【系统】模型接口异常：{type(exc).__name__}")
+        take_newcomers()                   # 这一轮没做完，就算建了也不在这里拉人，用户可以 /join
         return "模型接口出错了，这条我没处理完。过一会儿再发一次。"
+
+    # 这一轮里有 Agent 用工具新建了别的 Agent（用户说"帮我建一个……"）：让新来的进这个会话，先开口
+    created = take_newcomers()
+    if created:
+        ids = members_of(chat_id)
+        set_members(f"feishu:{chat_id}", "feishu", ids + [bot_id for bot_id in created if bot_id not in ids])
+        rooms.pop(chat_id, None)           # 成员变了，这个会话重新开始
+        welcome(chat_id, created)          # 里面会做备份
+        return notice
     backup_workspace("飞书对话后自动备份")
     return notice
 
