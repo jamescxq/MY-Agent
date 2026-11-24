@@ -128,6 +128,8 @@ def main():
 
     # 评测里的工具调用不是用户真的在用，不写进真的审计日志
     loop.write_audit = lambda *record: None
+    # 用量记录也一样：评测的数字不混进平时聊天的那份
+    loop.write_trace = lambda *record: None
     # 评测里不真的往飞书发通知：换成一个只回答"已发送"的假工具
     TOOL_FUNCTIONS["notify"] = lambda ctx, text: "已发送（评测里没有真的发）"
 

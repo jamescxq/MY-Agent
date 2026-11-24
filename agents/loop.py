@@ -1,8 +1,9 @@
+import time
 import anthropic
 from config import MODEL
 from agents.tools import TOOL_FUNCTIONS
 from agents.permission import need_approval, ask_user, guest_blocked
-from agents.audit import write_audit
+from agents.audit import write_audit, write_trace
 
 client = anthropic.Anthropic(
     max_retries=2,
@@ -43,6 +44,7 @@ def execute_tool(ctx, block, allowed, approver):
 
 def run_agent(ctx, system, tools, messages, approver=ask_user):
     for step in range(MAX_STEPS):
+        start = time.time()
         response = client.messages.create(
             model=MODEL,
             max_tokens=4096,
@@ -50,8 +52,11 @@ def run_agent(ctx, system, tools, messages, approver=ask_user):
             tools=tools,
             messages=messages,
         )
+        seconds = time.time() - start
+        # 每调一次模型记一行用量：谁调的、第几步、发了多少、回了多少、用了几秒
+        write_trace(ctx.bot_id, step + 1, response.usage.input_tokens, response.usage.output_tokens, seconds)
         print("【调试】第", step + 1, "次调用，stop_reason:", response.stop_reason)
-        print("【调试】这次发了多少 token:", response.usage.input_tokens)
+        print("【调试】发了", response.usage.input_tokens, "个 token，回了", response.usage.output_tokens, "个，用了", round(seconds, 2), "秒")
         has_tool = any(block.type == "tool_use" for block in response.content)
         has_text = any(block.type == "text" for block in response.content)
         if response.stop_reason == "max_tokens" and (has_tool or not has_text):
