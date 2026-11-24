@@ -9,6 +9,10 @@
 # 他不能用命令，关于他的事记在他自己的文件夹里，他说话时 Agent 碰不到别的访客的文件夹。
 # /guest 看访客名单，/unguest 名字 请他离开。规矩见 agents/sessions/guests.py。
 #
+# 定时提醒：用户说一句"每天早上 8 点提醒我投简历"，Agent 用 schedule 工具记进数据库。
+# 这里有一个时钟，每隔一会儿往队列里放一个记号；worker 取到记号就去看有没有到点的（on_tick），
+# 到点的交给定它的那个 Agent，在定它的那个会话里说（remind）。没有到点的事时不调模型。
+#
 # 飞书账号：收消息只靠主 bot 的那个应用机器人。别的 Agent 如果在 .env 里配了自己的应用机器人
 # （见 config.py 的 feishu_app），就用自己的账号发消息，飞书里显示它自己的名字和头像；
 # 没配的由主账号代发，开头带【名字】。
@@ -24,9 +28,10 @@ import anthropic
 import lark_oapi as lark
 from lark_oapi.api.im.v1 import CreateMessageRequest, CreateMessageRequestBody
 
-from config import FEISHU_APP_ID, FEISHU_APP_SECRET, FEISHU_OWNER_ID, feishu_app
-from agents.bots import all_bots, ctx_for, handle_session_command, ensure_workspace, is_fresh, take_newcomers, OPENING, OPENING_NOTE
+from config import FEISHU_APP_ID, FEISHU_APP_SECRET, FEISHU_OWNER_ID, TICK_SECONDS, feishu_app
+from agents.bots import all_bots, get_bot, ctx_for, handle_session_command, ensure_workspace, is_fresh, take_newcomers, OPENING, OPENING_NOTE
 from agents.prompt.builder import assemble_prompt, get_agent_name
+from agents.prompt.texts import prompt_text
 from agents.loop import run_agent
 from agents.permission import describe
 from agents.capabilities import tools_for
@@ -34,20 +39,14 @@ from agents.memory import write_daily, backup_workspace
 from agents.context import trim_messages
 from agents.store import list_members, set_members, list_guests, remove_guest
 from agents.sessions import NO_REPLY, Member, Room, group_rule, guest_label, guest_rule, invite_guest
+from agents.events import due_text, start_clock, run_due
 
-FEISHU_RULE = """
+# "你现在在飞书里"的规则，拼在每个成员的提示词后面。原文在 templates/prompts/feishu.md
+FEISHU_RULE = "\n\n" + prompt_text("feishu") + "\n"
 
-## 你现在在飞书里
-
-用户正通过飞书和你对话，不在电脑前。
-
-- 用户发的每一条消息你都能看到，但不是每一条都要回。用户只是随口说一句、自言自语，或者这句话明显不需要你接话时，只输出 [不回复] 这五个字符，不要加任何别的内容。
-- 用户在问你、让你做事，或者你有对用户有用的话要说时，正常回复。拿不准就回复。
-- 飞书里显示不了表格和标题这类格式，回复用纯文字，尽量短。
-- 用户让你改文件（改一句、删一句、重写整个文件），直接做，不用先问。少数操作系统会自动在飞书里问用户同意不同意，你不用自己问；被拒绝时不要重试。
-"""
-
-inbox = queue.Queue()      # 收到的消息先放这里排队
+inbox = queue.Queue()      # 排队的地方。里面有两种东西：飞书消息（四样一组），和时钟放进来的记号 TICK
+TICK = ("tick",)           # 时钟的记号：意思是"该看一眼有没有到点的定时提醒了"
+SESSION = "feishu:"        # 飞书会话在数据库里的编号是 feishu:会话号。定时提醒靠这个开头认出哪些归飞书送
 seen = set()               # 处理过的消息编号，用来去重
 rooms = {}                 # 会话编号 → 这个会话的成员和共享记录（Room）
 solo = {}                  # (会话编号, Agent 编号) → 单独对话时的那个成员，切走再切回来接着聊
@@ -273,15 +272,18 @@ def open_room(chat_id):
     return rooms[chat_id]
 
 
-def run(member, content, chat_id, guest_id="", note=None):
+def run(member, content, chat_id, guest_id="", note=None, scheduled=False):
     """让一个成员看 content，返回它说的话；它决定不接话时返回 None。
 
     note 不是空的时候，每日记录里用它代替 content（开场指令很长，记一句"它先开口"就够了）。
 
     guest_id 不是空的，表示这一轮是访客引起的：给它一张标了"访客在说话"的工牌，
     门禁看到这个标记，就不让工具碰别的访客的文件夹，也不让用允许名单以外的工具。
+
+    工牌上还写着现在在哪个会话（定时提醒的工具靠它知道到点以后把话送回哪）；
+    scheduled 是 True 表示这一轮是定时提醒到点引起的，这时工具不许再定新的。
     """
-    ctx = replace(member.ctx, guest=guest_id) if guest_id else member.ctx
+    ctx = replace(member.ctx, guest=guest_id, session=SESSION + chat_id, scheduled=scheduled)
     messages = trim_messages(member.messages)
     member.messages = messages
     before = len(messages)
@@ -402,10 +404,53 @@ def handle(chat_id, text, guest=None, mentioned=()):
     return notice
 
 
+def remind(row):
+    """一条定时提醒到点了：把它交给定它的那个 Agent，让它在定这件事的那个会话里说。
+
+    row 是数据库里的那一行。相当于代码替用户在那个会话里说了一句话，后面和平时一样：调模型、把回复发出去。
+    """
+    chat_id = row["session_id"][len(SESSION):]
+    if get_bot(row["bot_id"]) is None:
+        send(chat_id, f"【定时提醒】{row['task']}\n（定这条提醒的 Agent 已经不在了，原话转给你。）")
+        return
+    room = open_room(chat_id)
+    member = next((one for one in room.members if one.ctx.bot_id == row["bot_id"]), None)
+    if member is None:              # 它已经不在这个会话里了（/leave 过）：临时叫它来说这一句
+        member = make_member(row["bot_id"], [row["bot_id"]], list_guests(row["session_id"]))
+    print(f"【定时】到点了：{row['task']}（{member.name}，{row['id']} 号）")
+    try:
+        room.wake(
+            member, due_text(row["task"]),
+            lambda who, content: run(who, content, chat_id, note=f"（定时提醒到点：{row['task']}）", scheduled=True),
+            lambda who, reply: speak(chat_id, who, reply),
+        )
+    except anthropic.APIError as exc:
+        print(f"【系统】模型接口异常：{type(exc).__name__}")
+        send(chat_id, f"【定时提醒】{row['task']}\n（{member.name}这次没接上模型，原话转给你。）")
+    backup_workspace("定时提醒后自动备份")
+
+
+def on_tick(now=None):
+    """时钟响了一下：看有没有到点的定时提醒，有就用 remind 送出去。返回这一下有几条到点。
+
+    "查哪些到点、记数、登记做完"这几步不认识飞书，在 agents/events/scheduler.py 的 run_due 里；
+    这里只告诉它两件事：只管会话编号是 feishu: 开头的，送的办法是上面的 remind。
+    now 平时不用传，测试时用来假装"现在是几点"。
+    """
+    return run_due(SESSION, remind, now)
+
+
 def worker():
-    """一条一条地处理排队的消息。"""
+    """一样一样地处理排队的东西：飞书消息，或者时钟的记号。一次只做一样，所以定时提醒和你发的消息不会撞在一起。"""
     while True:
-        chat_id, text, guest, mentioned = inbox.get()
+        item = inbox.get()
+        if item is TICK:
+            try:
+                on_tick()
+            except Exception as exc:
+                print(f"【系统】看定时提醒时出错：{type(exc).__name__}：{exc}")
+            continue
+        chat_id, text, guest, mentioned = item
         if text is None:
             send(chat_id, "我现在只看得懂文字消息。")
             continue
@@ -433,6 +478,9 @@ def main():
     backup_workspace("启动时备份")
     api = lark.Client.builder().app_id(FEISHU_APP_ID).app_secret(FEISHU_APP_SECRET).build()
     threading.Thread(target=worker, daemon=True).start()
+    # 时钟：启动时先看一次（把关着的时候落下的补上），之后每隔 TICK_SECONDS 秒往队列里放一个记号。
+    # 它自己不干活，真正的活由 worker 排着队做。
+    start_clock(lambda: inbox.put(TICK), TICK_SECONDS)
     handler = (
         lark.EventDispatcherHandler.builder("", "")
         .register_p2_im_message_receive_v1(on_message)

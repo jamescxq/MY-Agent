@@ -1,6 +1,7 @@
 import json
 from agents import loop
 from agents.capabilities import load_packs
+from agents.prompt.texts import prompt_text
 
 # 新建 Agent 时，根据名字起草一份人设。
 #
@@ -24,17 +25,7 @@ INTRO_DONE = "*这份人设是新建时根据名字写的初稿。用户想改�
 GENERAL_ROLE = "通用助手"
 TRACE_NAME = "起草人设"         # 用量记录里，起草人设的那次调用记在这个名字下
 
-SYSTEM = """你在帮用户新建一个 AI 助手。用户只给了它一个名字，你根据名字起草它的人设。
-
-只输出一个 JSON 对象，不要输出别的文字，不要用代码块。字段：
-- "domain"：true 或 false。名字是某个领域或职业的词（编程工程师、英语老师、网申助手、简历顾问）填 true；只是一个称呼（小白、旺财、阿福、三牛）填 false。
-- "role"：它的角色，不超过 15 个字。domain 是 false 时填"通用助手"。
-- "personality"：性格，2 到 4 个词，用顿号隔开。
-- "style"：它怎么和用户说话，一句话，不超过 40 个字。
-- "description"：一句话说明它是干什么的，不超过 25 个字。domain 是 false 时填"通用助手，什么都可以找它"。
-- "packs"：和它的角色相关的能力包编号列表，只能从给你的清单里选；没有相关的就填 []。
-
-不要写它"能做到"哪些具体的事，那由系统另外给出。"""
+SYSTEM = prompt_text("persona")     # 起草人设时给模型的说明。原文在 templates/prompts/persona.md
 
 
 def pack_list():

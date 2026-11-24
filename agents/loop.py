@@ -38,8 +38,8 @@ def execute_tool(ctx, block, allowed, approver):
         result["is_error"] = True
         write_audit(block.name, block.input.get("path"), approval, False)
         return result
-    if guest_blocked(ctx, block.name):
-        result["content"] = "拒绝：现在是访客在说话，这个工具只有用户本人说话时才能用。不要重试，告诉访客这件事要用户本人来说"
+    if guest_blocked(ctx, block.name, block.input):
+        result["content"] = "拒绝：现在是访客在说话，这件事只有用户本人说话时才能做。不要重试，告诉访客这件事要用户本人来说"
         result["is_error"] = True
         write_audit(block.name, block.input.get("path"), "访客不能用", False)
         return result

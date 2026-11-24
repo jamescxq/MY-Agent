@@ -32,7 +32,8 @@ def make_agent(root, files, is_main=True, packs=()):
     is_main=False 表示它是专属 Agent，不是主 bot：能读公共的 user/，不能改。
     packs 是这道题给它打开的能力包；主 bot 不写就是全开。
     """
-    ctx = Ctx(bot_id="eval", folder=root / "bots" / "eval", user_folder=root / "user", can_write_user=True)
+    # session 是这道题的"会话编号"：定时提醒的工具要靠它知道记在哪个会话名下
+    ctx = Ctx(bot_id="eval", folder=root / "bots" / "eval", user_folder=root / "user", can_write_user=True, session="eval:题目")
     ctx.folder.mkdir(parents=True)
     ctx.user_folder.mkdir(parents=True)
     shutil.copy(TEMPLATES / "bot" / "AGENT.md", ctx.folder / "AGENT.md")

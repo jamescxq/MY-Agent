@@ -59,12 +59,17 @@ def report(rows):
 
 
 if __name__ == "__main__":
+    from agents.audit.ticks import ticks_text
+
     if len(sys.argv) > 1:
         print(f"{sys.argv[1]}：")
         print(report(read_rows(day=sys.argv[1])))
+        print(ticks_text(sys.argv[1]))
     else:
         today = date.today().isoformat()
         print(f"今天（{today}）：")
         print(report(read_rows(day=today)))
+        print(ticks_text(today))
         print("全部：")
         print(report(read_rows()))
+        print(ticks_text())

@@ -16,6 +16,8 @@ class Ctx:
     packs: list = field(default_factory=list)    # 启用的能力包编号，比如 ["notes", "notify"]
     guests_folder: Path = None      # 访客们的文件夹 guests/，每位访客一个子文件夹。没有就是 None
     guest: str = ""                 # 现在是哪位访客在说话（他的编号，比如 guest-1）。空着表示是用户在说话
+    session: str = ""               # 现在在哪个会话里，比如 feishu:群编号。定时提醒靠它知道到点以后把话送回哪。空着表示这个入口没法到点叫它（命令行）
+    scheduled: bool = False         # True 表示这一轮不是谁说了话，是定时提醒到点引起的。这种时候不许再定新的提醒
 
 def ctx_for(bot_id):
     """按编号造一张工牌：自己的文件夹是 bots/编号/，启用的能力包从花名册里查。只有主 bot 能改公共的 user/。"""

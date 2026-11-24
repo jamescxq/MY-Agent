@@ -4,9 +4,18 @@ from agents.permission.guard import safe_path
 # 用"允许名单"而不是"禁止名单"：以后新加的工具（浏览器、邮件）默认访客用不了，要给访客用就加到这里。
 GUEST_TOOLS = ("get_time", "read_file", "list_file", "write_file", "edit_file", "notify")
 
-def guest_blocked(ctx, name):
-    """现在是访客在说话，而且这个工具不在允许名单里，就返回 True。"""
-    return bool(ctx.guest) and name not in GUEST_TOOLS
+# 有的工具能做好几件事，访客只能做其中几件。写法：工具名 → 访客能用的动作（看参数里的 action）。
+# 定时提醒（用户 2026-11-24 定的）：访客可以查看、删除，不用问；不能新定。
+# 起因：二牛按用户的要求给一位访客定了 13 条叫起床的提醒，访客想取消却被拦住了。被提醒打扰的人要能自己停掉。
+GUEST_ACTIONS = {"schedule": ("list", "delete")}
+
+def guest_blocked(ctx, name, args=None):
+    """现在是访客在说话，而且这次调用访客不能做，就返回 True。args 是这次调用的参数。"""
+    if not ctx.guest:
+        return False
+    if name in GUEST_ACTIONS:
+        return (args or {}).get("action") not in GUEST_ACTIONS[name]
+    return name not in GUEST_TOOLS
 
 def need_approval(ctx, name, args):
     """这次工具调用要不要先问用户。（用户 2026-11-18 定的：改文件不用问）
@@ -59,3 +68,10 @@ if __name__ == "__main__":
     print(need_approval(visiting, "write_file", {"path": "不存在.md"}))                                     # 应该：False，新建文件
     print(need_approval(visiting, "edit_file", {"path": "MEMORY.md", "old_text": "", "new_text": "新"}))    # 应该：False，追加
     print(describe("edit_file", {"path": "MEMORY.md", "old_text": "旧", "new_text": ""}))                  # 应该：把 MEMORY.md 里的“旧”删掉
+
+    print(guest_blocked(ctx, "schedule", {"action": "create"}))         # 应该：False，用户说话时什么都不拦
+    print(guest_blocked(visiting, "read_file", {"path": "MEMORY.md"}))  # 应该：False，在允许名单里
+    print(guest_blocked(visiting, "create_agent", {"name": "x"}))       # 应该：True，不在允许名单里
+    print(guest_blocked(visiting, "schedule", {"action": "create"}))    # 应该：True，访客不能新定提醒
+    print(guest_blocked(visiting, "schedule", {"action": "list"}))      # 应该：False，访客可以看
+    print(guest_blocked(visiting, "schedule", {"action": "delete", "id": 1}))   # 应该：False，访客可以删

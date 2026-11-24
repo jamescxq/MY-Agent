@@ -5,6 +5,7 @@ from .edit_file import EDIT_FILE_TOOL, edit_file
 from .write_file import WRITE_FILE_TOOL,write_file
 from .notify import NOTIFY_TOOL, notify
 from .create_agent import CREATE_AGENT_TOOL, create_agent
+from .schedule import SCHEDULE_TOOL, schedule
 
 REGISTRY = [
     (GET_TIME_TOOL, get_time),
@@ -14,6 +15,7 @@ REGISTRY = [
     (WRITE_FILE_TOOL,write_file),
     (NOTIFY_TOOL, notify),
     (CREATE_AGENT_TOOL, create_agent),
+    (SCHEDULE_TOOL, schedule),
 ]
 
 TOOLS = [schema for schema, func in REGISTRY]

@@ -13,6 +13,7 @@ BOTS_DIR = WORKSPACE / "bots"              # 每个 Agent 一个文件夹，名�
 GUESTS_DIR = WORKSPACE / "guests"          # 每位访客一个文件夹，里面是关于他的记忆
 STATE_DB = WORKSPACE / "state.db"       # 数据库：Agent 档案、会话、成员名单
 DB_BACKUPS = WORKSPACE / "db-backups"      # 数据库的备份，一天一份
+TICK_SECONDS = 60                          # 定时提醒：每隔多少秒看一次有没有到点的事。只是查一下数据库，不调模型
 MODEL = os.getenv("MODEL", "claude-opus-5-5")
 FEISHU_WEBHOOK = os.getenv("FEISHU_WEBHOOK")
 FEISHU_APP_ID = os.getenv("FEISHU_APP_ID")

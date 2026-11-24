@@ -65,8 +65,33 @@ def tool_not_called(result, name):
     return True, ""
 
 
+def schedules_of(result):
+    """这道题的临时数据库里，现在记着哪些定时提醒。"""
+    from agents.store import list_schedules
+
+    ctx = result["ctx"]
+    return list_schedules(ctx.session, ctx.folder.parent.parent / "state.db")
+
+
+def schedule_made(result, kind, at):
+    """数据库里真的记下了一条，而且种类和时间都对。比如 ("定了提醒", "daily", "08:00")。"""
+    rows = schedules_of(result)
+    if any(row["kind"] == kind and row["at"] == at for row in rows):
+        return True, ""
+    return False, f"没有记下 {kind} {at} 的提醒，实际记的是 {[(row['kind'], row['at'], row['task']) for row in rows]}"
+
+
+def schedule_not_made(result):
+    rows = schedules_of(result)
+    if rows:
+        return False, f"自己定了不该定的提醒：{[(row['kind'], row['at'], row['task']) for row in rows]}"
+    return True, ""
+
+
 # 题目里写的检查项名字 → 对应的检查函数
 GRADERS = {
+    "定了提醒": schedule_made,
+    "没有定提醒": schedule_not_made,
     "文件里有": file_has,
     "文件里没有": file_has_not,
     "回复里有": reply_has,
