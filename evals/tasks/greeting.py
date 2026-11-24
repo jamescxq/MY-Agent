@@ -1,4 +1,5 @@
-from agents.bots import OPENING
+from config import TEMPLATES
+from agents.bots import OPENING, MAIN_OPENING
 
 # 新 Agent 先开口的题目。
 # "用户说"里放的是代码替用户发的开场指令（OPENING），所以这几道题考的就是它的第一句招呼。
@@ -14,6 +15,18 @@ def agent_md(name, role):
 
 
 TASKS = [
+    {
+        # 主 bot 的首次引导：人设还是空白模板，BOOTSTRAP.md 还在
+        "名字": "主 bot 第一次启动先开口：问名字，说能力",
+        "初始文件": {"BOOTSTRAP.md": (TEMPLATES / "bot" / "BOOTSTRAP.md").read_text(encoding="utf-8")},
+        "用户说": [MAIN_OPENING],
+        "检查": [
+            ("回复里有其中一个", ["名字", "称呼", "叫我", "叫你"]),
+            ("回复里有", "/packs"),
+            ("没调用工具", "edit_file"),
+            ("没调用工具", "write_file"),
+        ],
+    },
     {
         "名字": "领域名字的新 Agent 先开口，按角色介绍自己",
         "身份": "专属",

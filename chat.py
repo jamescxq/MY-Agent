@@ -1,6 +1,6 @@
 import anthropic
 
-from agents.bots import main_ctx, ctx_for, get_bot, handle_command, is_fresh, OPENING, OPENING_NOTE
+from agents.bots import main_ctx, ctx_for, get_bot, handle_command, opening_for, OPENING_NOTE
 from agents.prompt.builder import build_system_prompt, assemble_prompt, get_agent_name
 from agents.loop import run_agent
 from agents.capabilities import tools_for
@@ -28,25 +28,31 @@ def open_talk(bot_id):
 print("输入 /retry 重试中断的请求，输入 /exit 退出。")
 print("输入 /bots 看有哪些 Agent，/new 名字 新建一个，/use 名字 切换，/delete 名字 删除，/packs 看能力。")
 
+# 开场指令：不是 None 的时候，这一轮不等用户输入，由 Agent 先开口。
+# 主 bot 第一次启动时就是这样（首次引导）；新建或切到一个没说过话的 Agent 时也是。
+opening = opening_for(ctx)
+
 while True:
-    try:
-        user_input = input("你：")
-    # EOFError：输入流结束，没有输入可以继续读。
-    # KeyboardInterrupt：你按了Ctrl + C，主动中断程序。
-    except (EOFError, KeyboardInterrupt):
-        print("\n已退出，拜拜👋。")
-        break
+    if opening is not None:
+        user_input = ""
+    else:
+        try:
+            user_input = input("你：")
+        # EOFError：输入流结束，没有输入可以继续读。
+        # KeyboardInterrupt：你按了Ctrl + C，主动中断程序。
+        except (EOFError, KeyboardInterrupt):
+            print("\n已退出，拜拜👋。")
+            break
 
     # not user_input 表示“输入是空字符串”。
-    if not user_input.strip():
+    if opening is None and not user_input.strip():
         continue
 
     if user_input == "/exit":
         break
 
     # /new、/bots、/use、/packs 由 agents/bots 处理；别的话返回 None，照常交给模型
-    result = handle_command(user_input, ctx.bot_id)
-    greeting = False        # 这一轮是不是"新 Agent 先开口"
+    result = handle_command(user_input, ctx.bot_id) if opening is None else None
     if result is not None:
         text, bot_id, restart = result
         print(text)
@@ -57,10 +63,11 @@ while True:
         if restart or bot_id != ctx.bot_id:
             ctx, system_prompt, tools, messages = open_talk(bot_id)
             pending_retry = False
-            greeting = not messages and is_fresh(ctx)      # 一句话都没说过的 Agent：让它先打招呼
+            if not messages:
+                opening = opening_for(ctx)      # 一句话都没说过的 Agent：让它先打招呼
         for gone in [key for key in parked if get_bot(key) is None]:
             del parked[gone]                # 被删掉的 Agent，存着的对话也丢掉
-        if not greeting:
+        if opening is None:
             continue
 
     # 斜杠开头、但哪个命令都不是（多半是打错了）：直接提示，不交给模型
@@ -68,10 +75,11 @@ while True:
         print("没有这个命令。输入 /bots 可以看有哪些 Agent 和能用的命令。")
         continue
 
-    if greeting:
+    if opening is not None:
         # 代码替用户发一条开场指令，它的回答就是招呼。往下走的是和普通对话同一条路
         last_input = OPENING_NOTE
-        messages.append({"role": "user", "content": OPENING})
+        messages.append({"role": "user", "content": opening})
+        opening = None
     elif user_input == "/retry":
         if not pending_retry:
             print("我觉得目前没有需要重试的请求哦。")

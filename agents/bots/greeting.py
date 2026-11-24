@@ -12,12 +12,35 @@ OPENING = """（这条是系统替用户发的，用户看不到）
 - 说到"能做什么"，只能说能力清单里"已启用"的，加上聊天、解释、写文字、出主意这些不需要工具的事。和你的角色相关、但"没有启用"或"还没接入"的能力，要如实说现在还做不了。
 - 不要调用任何工具。纯文字，不超过 120 个字，不要用表格和标题。"""
 
+# 主 bot 第一次启动时的开场指令。具体怎么引导写在 BOOTSTRAP.md 里（它已经在提示词里了），
+# 这里只是让它先开口，并且把"选能力"这一步带上。
+MAIN_OPENING = """（这条是系统替用户发的，用户看不到）
+这是你第一次启动，用户刚刚打开你。现在由你先开口，按 BOOTSTRAP.md 里的流程来：
+
+- 打个招呼，用一句话说你能帮上什么。
+- 问用户三件事：想给你起什么名字、你该怎么称呼他、喜欢什么样的交流风格。
+- 用一句话告诉用户你现在开着哪些能力（只说能力清单里"已启用"的），并告诉他输入 /packs 可以打开或关掉。
+- 不要调用任何工具。纯文字，不超过 150 个字，不要用表格和标题。"""
+
 OPENING_NOTE = "（刚新建，它先开口）"      # 每日记录里代替上面那一大段
+
+MAIN = "main"
 
 
 def is_fresh(ctx):
-    """这个 Agent 是不是一句话都还没说过：它的文件夹里还没有每日记录（memory/）。
+    """这个专属 Agent 是不是一句话都还没说过：它的文件夹里还没有每日记录（memory/）。主 bot 不算。"""
+    return ctx.bot_id != MAIN and not (ctx.folder / "memory").exists()
 
-    主 bot 不算：它有自己的首次引导（BOOTSTRAP.md）。
+
+def opening_for(ctx):
+    """现在该不该让这个 Agent 先开口。该的话返回要发给它的开场指令，不该返回 None。
+
+    - 说过话的（已经有每日记录）：不用。
+    - 专属 Agent 还没说过话：用 OPENING。
+    - 主 bot 第一次启动（首次引导 BOOTSTRAP.md 还在）：用 MAIN_OPENING。
     """
-    return ctx.bot_id != "main" and not (ctx.folder / "memory").exists()
+    if (ctx.folder / "memory").exists():
+        return None
+    if ctx.bot_id == MAIN:
+        return MAIN_OPENING if (ctx.folder / "BOOTSTRAP.md").exists() else None
+    return OPENING

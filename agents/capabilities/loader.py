@@ -62,13 +62,18 @@ def load_packs(folder=PACKS_DIR):
 def enabled_ids(bot_id, chosen):
     """这个 Agent 启用了哪些能力包。chosen 是用户给它打开的那些（存在花名册里）。
 
-    还没接入的不算；每个 Agent 都有的一定算；主 bot 默认全开。
+    还没接入的不算；每个 Agent 都有的一定算。
+    主 bot 特殊一点：用户还没给它选过（chosen 是空的）时，所有能用的都开着；
+    选过以后就按选的来，和别的 Agent 一样。
+    怎么区分"没选过"和"选了但全关掉"：给主 bot 存的时候，把每个 Agent 都有的那几项也一起存，
+    所以只要选过，这份名单就不会是空的。
     """
+    all_on = bot_id == MAIN and not chosen
     ids = []
     for pack in load_packs():
         if not pack.available:
             continue
-        if pack.always or bot_id == MAIN or pack.id in chosen:
+        if pack.always or all_on or pack.id in chosen:
             ids.append(pack.id)
     return ids
 
@@ -124,7 +129,8 @@ if __name__ == "__main__":
     for pack in load_packs():
         print(pack.id, pack.name, pack.tools, "能用" if pack.available else "还没接入", "必有" if pack.always else "")
 
-    print(enabled_ids("main", []))            # 应该：['notes', 'notify']，主 bot 全开
+    print(enabled_ids("main", []))            # 应该：['notes', 'notify']，主 bot 没选过时全开
+    print(enabled_ids("main", ["notes"]))     # 应该：['notes']，主 bot 选过以后按选的来
     print(enabled_ids("bot-1", []))           # 应该：['notes']，只有必有的
     print(enabled_ids("bot-1", ["notify"]))   # 应该：['notes', 'notify']
     print(enabled_ids("bot-1", ["email"]))    # 应该：['notes']，还没接入的开不了

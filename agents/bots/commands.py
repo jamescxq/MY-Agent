@@ -242,11 +242,10 @@ def switch_pack(bot_id, arg):
         return f"「{pack.name}」还没接入，现在开不了", bot_id, False
     if pack.always:
         return f"「{pack.name}」每个 Agent 都有，不能关", bot_id, False
-    if bot_id == MAIN:
-        return "主 Agent 默认开着全部能用的能力，现在还不能单独关。可以新建一个 Agent 再给它选", bot_id, False
-
     bot = get_bot(bot_id)
-    chosen = list(bot.packs)
+    # 从"现在实际开着的"出发来改。主 bot 没选过时是全开，这样第一次关掉一项，别的还留着；
+    # 存进去的名单里带着每个 Agent 都有的那几项，以后就知道主 bot 已经选过了（见 enabled_ids）
+    chosen = enabled_ids(bot_id, bot.packs)
     if pack.id in chosen:
         chosen.remove(pack.id)
         word = "关掉"

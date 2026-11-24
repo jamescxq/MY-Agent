@@ -30,7 +30,7 @@ def make_agent(root, files, is_main=True, packs=()):
     """在临时文件夹 root 里建一个 Agent：先放空白模板，再放这道题的初始文件。返回它的工牌。
 
     is_main=False 表示它是专属 Agent，不是主 bot：能读公共的 user/，不能改。
-    packs 是这道题给它打开的能力包；主 bot 默认全开。
+    packs 是这道题给它打开的能力包；主 bot 不写就是全开。
     """
     ctx = Ctx(bot_id="eval", folder=root / "bots" / "eval", user_folder=root / "user", can_write_user=True)
     ctx.folder.mkdir(parents=True)
