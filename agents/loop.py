@@ -10,6 +10,21 @@ client = anthropic.Anthropic(
     timeout=300.0,
 )
 MAX_STEPS = 10
+
+
+def call_model(bot, step, **request):
+    """调一次模型，顺手记一行用量。所有调模型的地方都走这里，这样不会有哪次漏记。
+
+    bot、step 只用来记账：谁调的、第几步。request 是原样交给模型的那些参数（system、messages……）。
+    """
+    start = time.time()
+    response = client.messages.create(model=MODEL, **request)
+    seconds = time.time() - start
+    write_trace(bot, step, response.usage.input_tokens, response.usage.output_tokens, seconds)
+    print("【调试】发了", response.usage.input_tokens, "个 token，回了", response.usage.output_tokens, "个，用了", round(seconds, 2), "秒")
+    return response
+
+
 def execute_tool(ctx, block, allowed, approver):
     result = {
         "type": "tool_result",
@@ -44,19 +59,14 @@ def execute_tool(ctx, block, allowed, approver):
 
 def run_agent(ctx, system, tools, messages, approver=ask_user):
     for step in range(MAX_STEPS):
-        start = time.time()
-        response = client.messages.create(
-            model=MODEL,
+        response = call_model(
+            ctx.bot_id, step + 1,
             max_tokens=4096,
             system=system,
             tools=tools,
             messages=messages,
         )
-        seconds = time.time() - start
-        # 每调一次模型记一行用量：谁调的、第几步、发了多少、回了多少、用了几秒
-        write_trace(ctx.bot_id, step + 1, response.usage.input_tokens, response.usage.output_tokens, seconds)
         print("【调试】第", step + 1, "次调用，stop_reason:", response.stop_reason)
-        print("【调试】发了", response.usage.input_tokens, "个 token，回了", response.usage.output_tokens, "个，用了", round(seconds, 2), "秒")
         has_tool = any(block.type == "tool_use" for block in response.content)
         has_text = any(block.type == "text" for block in response.content)
         if response.stop_reason == "max_tokens" and (has_tool or not has_text):

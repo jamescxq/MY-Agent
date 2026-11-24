@@ -50,6 +50,23 @@ def make_agent(root, files, is_main=True, packs=()):
     return ctx
 
 
+USED = []      # 评测里每调一次模型记一行（在 main 里接上）。只在内存里，不写进平时聊天的那份 trace.jsonl
+
+
+def note_usage(bot, step, input_tokens, output_tokens, seconds):
+    """评测时顶替 write_trace：同样的五个数，记进上面的列表。"""
+    USED.append({"bot": bot, "step": step, "input_tokens": input_tokens, "output_tokens": output_tokens, "seconds": seconds})
+
+
+def usage_text(rows, runs=1):
+    """把几行用量加起来写成一句话。runs 大于 1 时除以它，得到平均每次的数。"""
+    calls = len(rows) / runs
+    sent = sum(row["input_tokens"] for row in rows) / runs
+    got = sum(row["output_tokens"] for row in rows) / runs
+    seconds = sum(row["seconds"] for row in rows) / runs
+    return f"调模型 {calls:g} 次，发 {sent:.0f}、回 {got:.0f} 个 token，模型用时 {seconds:.1f} 秒"
+
+
 def tools_called(messages):
     """从对话历史里找出调用过哪些工具，按顺序。"""
     names = []
@@ -65,6 +82,7 @@ def tools_called(messages):
 def run_once(task):
     """把一道题跑一次。返回 (对不对, 没通过的说明列表, 这次的结果)。"""
     answer = task.get("审批", True)
+    start = len(USED)                       # 这一次开始前已经记了几行；后面多出来的就是这一次用的
     with tempfile.TemporaryDirectory() as tmp:
         ctx = make_agent(Path(tmp), task["初始文件"], is_main=task.get("身份") != "专属", packs=task.get("能力包", ()))
         system = assemble_prompt(ctx)
@@ -83,7 +101,7 @@ def run_once(task):
         for text in task["用户说"]:
             messages.append({"role": "user", "content": label + text})
             reply = loop.run_agent(speaking, system, tools_for(ctx), messages, approver=lambda name, args: answer)
-        result = {"ctx": ctx, "reply": reply, "tools": tools_called(messages)}
+        result = {"ctx": ctx, "reply": reply, "tools": tools_called(messages), "usage": USED[start:]}
         problems = []
         for item in task["检查"]:           # 检查要在临时文件夹被删掉之前做
             ok, detail = check(result, item)
@@ -96,22 +114,29 @@ def run_task(task, runs):
     """把一道题跑 runs 次，全对才算通过。"""
     print(f"\n题目：{task['名字']}")
     passed = 0
+    finished = 0                # 跑完了几次（通过、不通过都算；接口出错的不算）
+    used = []                   # 跑完的这几次一共用了多少
     for i in range(1, runs + 1):
         try:
             ok, problems, result = run_once(task)
         except anthropic.APIError as exc:
             print(f"  第 {i} 次：没跑成，模型接口出错（{type(exc).__name__}）")
             continue
+        finished += 1
+        used += result["usage"]
         if ok:
             passed += 1
             print(f"  第 {i} 次：通过。调用的工具：{result['tools']}")
-            continue
-        print(f"  第 {i} 次：不通过。调用的工具：{result['tools']}")
-        for detail in problems:
-            print(f"      ✗ {detail}")
-        print(f"      最后的回复：{result['reply'][:200]}")
+        else:
+            print(f"  第 {i} 次：不通过。调用的工具：{result['tools']}")
+            for detail in problems:
+                print(f"      ✗ {detail}")
+            print(f"      最后的回复：{result['reply'][:200]}")
+        print(f"      用量：{usage_text(result['usage'])}")
     ok = passed == runs
     print(f"  结果：{runs} 次里 {passed} 次通过 → {'通过' if ok else '不通过'}")
+    if finished > 1:
+        print(f"  平均每次：{usage_text(used, finished)}")
     return ok
 
 
@@ -128,13 +153,14 @@ def main():
 
     # 评测里的工具调用不是用户真的在用，不写进真的审计日志
     loop.write_audit = lambda *record: None
-    # 用量记录也一样：评测的数字不混进平时聊天的那份
-    loop.write_trace = lambda *record: None
+    # 用量记录也不写进平时聊天的那份，改成记在上面的 USED 里，跑完报出来
+    loop.write_trace = note_usage
     # 评测里不真的往飞书发通知：换成一个只回答"已发送"的假工具
     TOOL_FUNCTIONS["notify"] = lambda ctx, text: "已发送（评测里没有真的发）"
 
     passed = sum(run_task(task, args.runs) for task in tasks)
     print(f"\n总计：{len(tasks)} 道题，通过 {passed} 道")
+    print(f"总用量：{usage_text(USED)}")
     sys.exit(0 if passed == len(tasks) else 1)
 
 

@@ -1,5 +1,4 @@
 import json
-from config import MODEL
 from agents import loop
 from agents.capabilities import load_packs
 
@@ -23,6 +22,7 @@ INTRO_HINT = "*在首次对话时与用户一起填写这个文件，定义你�
 INTRO_DONE = "*这份人设是新建时根据名字写的初稿。用户想改，就用 edit_file 改这个文件。*"
 
 GENERAL_ROLE = "通用助手"
+TRACE_NAME = "起草人设"         # 用量记录里，起草人设的那次调用记在这个名字下
 
 SYSTEM = """你在帮用户新建一个 AI 助手。用户只给了它一个名字，你根据名字起草它的人设。
 
@@ -82,8 +82,8 @@ def draft_persona(name, description=""):
     for pack in packs:
         state = "可用" if pack.available else "还没接入"
         lines.append(f"- {pack.id}：{pack.name}，{pack.description}（{state}）")
-    response = loop.client.messages.create(      # 和对话用的是同一个模型客户端（agents/loop.py 里建的）
-        model=MODEL,
+    response = loop.call_model(                  # 和对话走同一个入口，所以这次调用也会记进用量
+        TRACE_NAME, 1,                           # 这时候新 Agent 还没建出来，没有编号，用量记在这个名字下
         max_tokens=1024,
         system=SYSTEM,
         messages=[{"role": "user", "content": "\n".join(lines)}],
