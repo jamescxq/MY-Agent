@@ -75,7 +75,7 @@ def tools_called(messages):
         if message["role"] != "assistant" or isinstance(message["content"], str):
             continue
         for block in message["content"]:
-            if block.type == "tool_use":
+            if block.type in ("tool_use", "server_tool_use"):      # 后一种是模型那边的服务器替我们执行的（搜索、读网页）
                 names.append(block.name)
     return names
 
@@ -101,7 +101,7 @@ def run_once(task):
         reply = ""
         for text in task["用户说"]:
             messages.append({"role": "user", "content": label + text})
-            reply = loop.run_agent(speaking, system, tools_for(ctx), messages, approver=lambda name, args: answer)
+            reply = loop.run_agent(speaking, system, tools_for(ctx), messages, approver=lambda name, args, reason="": answer)
         result = {"ctx": ctx, "reply": reply, "tools": tools_called(messages), "usage": USED[start:]}
         problems = []
         for item in task["检查"]:           # 检查要在临时文件夹被删掉之前做

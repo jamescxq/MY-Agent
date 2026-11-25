@@ -1,6 +1,9 @@
 from dataclasses import dataclass, field
+import config
 from config import TEMPLATES
 from agents.tools import TOOLS
+from agents.tools.web_search import search_ready
+from agents.models import vendor
 
 # 能力包：一个能力一个文件夹，在 templates/capabilities/ 下面，里面是一份 CAPABILITY.md。
 # 这个文件负责两件事：
@@ -12,6 +15,7 @@ from agents.tools import TOOLS
 
 PACKS_DIR = TEMPLATES / "capabilities"
 BASE_TOOLS = ["get_time"]         # 不属于任何能力包、每个 Agent 都有的工具
+WEB_TOOLS = ("web_search", "web_fetch")     # 搜索和读网页有两条路，走哪条见 web_mode()
 MAIN = "main"                     # 主 bot：所有能用的能力包默认都开着
 
 
@@ -78,13 +82,33 @@ def enabled_ids(bot_id, chosen):
     return ids
 
 
+def web_mode():
+    """搜索和读网页现在走哪条路。own：我们自己写的工具；server：让模型那边的服务器去做。
+
+    由 config.py 的 WEB_MODE 决定。auto（默认）时：配了搜索服务的密钥就用自己的；
+    没配、但现在连的这家模型接口自带搜索（见 agents/models/），就让服务器去搜；两样都没有也用自己的
+    （这时搜索工具会如实告诉模型"还没配置"，读网页照常能用）。
+    """
+    has_server = bool(vendor().SERVER_TOOLS)
+    if config.WEB_MODE == "own":
+        return "own"
+    if config.WEB_MODE == "server":
+        return "server" if has_server else "own"
+    return "own" if search_ready() or not has_server else "server"
+
+
 def tools_for(ctx):
-    """这个 Agent 能拿到的工具（交给模型的那份清单）。"""
+    """这个 Agent 能拿到的工具（交给模型的那份清单）。
+
+    搜索和读网页走"让服务器去做"那条路时，清单里放的不是我们自己的工具说明，
+    而是那家接口规定的那几行（告诉服务器：这一轮允许你搜、允许你读网页）。
+    """
     names = set(BASE_TOOLS)
     for pack in load_packs():
         if pack.id in ctx.packs:
             names.update(pack.tools)
-    return [tool for tool in TOOLS if tool["name"] in names]
+    server = vendor().SERVER_TOOLS if web_mode() == "server" else {}
+    return [server.get(tool["name"], tool) if tool["name"] in WEB_TOOLS else tool for tool in TOOLS if tool["name"] in names]
 
 
 def capability_text(ctx):

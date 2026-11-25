@@ -1,1 +1,1 @@
-from .gate import need_approval, ask_user, describe, guest_blocked
+from .gate import need_approval, approval_reason, ask_user, describe, guest_blocked

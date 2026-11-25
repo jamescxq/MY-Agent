@@ -14,6 +14,17 @@ GUESTS_DIR = WORKSPACE / "guests"          # 每位访客一个文件夹，里�
 STATE_DB = WORKSPACE / "state.db"       # 数据库：Agent 档案、会话、成员名单
 DB_BACKUPS = WORKSPACE / "db-backups"      # 数据库的备份，一天一份
 TICK_SECONDS = 60                          # 定时提醒：每隔多少秒看一次有没有到点的事。只是查一下数据库，不调模型
+
+# 搜索和读网页走哪条路：
+#   auto    自动（默认）：配了搜索服务的密钥就用我们自己写的工具；没配、但模型那边的接口自带搜索，就让服务器去搜
+#   own     只用我们自己写的工具
+#   server  只让模型那边的服务器去做（那边不带的话，退回用自己的）
+WEB_MODE = os.getenv("WEB_MODE", "auto")
+SEARCH_PROVIDER = os.getenv("SEARCH_PROVIDER", "")      # 指定用哪家搜索服务（tavily、bocha）。不填就用第一个配了密钥的
+SEARCH_KEYS = {                                        # 各家搜索服务的密钥，只从 .env 读
+    "tavily": os.getenv("TAVILY_API_KEY", ""),
+    "bocha": os.getenv("BOCHA_API_KEY", ""),
+}
 MODEL = os.getenv("MODEL", "claude-opus-5-5")
 FEISHU_WEBHOOK = os.getenv("FEISHU_WEBHOOK")
 FEISHU_APP_ID = os.getenv("FEISHU_APP_ID")

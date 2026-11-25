@@ -66,10 +66,11 @@ def make_approver(chat_id, who):
     回"同意"才算同意；回别的、喊 /stop、或者太久没回，都算拒绝。只认主人的回答，访客说"同意"不算。
     who 是哪个 Agent 想做这件事。
     """
-    def approver(name, args):
+    def approver(name, args, reason=""):
         box = queue.Queue()                # 主人的回答会被 on_message 放进这里
         pending[chat_id] = box
-        send(chat_id, f"【要你点头】{who}想{describe(name, args)}。\n同意就回：同意。回别的，或者 {APPROVAL_WAIT // 60} 分钟没回，都算拒绝。")
+        why = f"\n为什么问你：{reason}。" if reason else ""
+        send(chat_id, f"【要你点头】{who}想{describe(name, args)}。{why}\n同意就回：同意。回别的，或者 {APPROVAL_WAIT // 60} 分钟没回，都算拒绝。")
         try:
             answer = box.get(timeout=APPROVAL_WAIT)
         except queue.Empty:
