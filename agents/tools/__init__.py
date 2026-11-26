@@ -8,6 +8,7 @@ from .create_agent import CREATE_AGENT_TOOL, create_agent
 from .schedule import SCHEDULE_TOOL, schedule
 from .web_search import WEB_SEARCH_TOOL, web_search
 from .web_fetch import WEB_FETCH_TOOL, web_fetch
+from .dispatch import DISPATCH_TOOL, dispatch
 
 REGISTRY = [
     (GET_TIME_TOOL, get_time),
@@ -20,6 +21,7 @@ REGISTRY = [
     (SCHEDULE_TOOL, schedule),
     (WEB_SEARCH_TOOL, web_search),
     (WEB_FETCH_TOOL, web_fetch),
+    (DISPATCH_TOOL, dispatch),
 ]
 
 TOOLS = [schema for schema, func in REGISTRY]

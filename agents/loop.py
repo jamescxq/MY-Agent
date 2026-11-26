@@ -2,7 +2,7 @@ import time
 import anthropic
 from config import MODEL
 from agents.tools import TOOL_FUNCTIONS
-from agents.permission import approval_reason, ask_user, guest_blocked
+from agents.permission import approval_reason, ask_user
 from agents.permission.taint import has_outside
 from agents.audit import write_audit, write_trace, check_limit
 from agents.models import vendor
@@ -12,7 +12,9 @@ client = anthropic.Anthropic(
     timeout=300.0,
 )
 MAX_STEPS = 10
-CACHE = {"type": "ephemeral"}       # 提示词缓存的标记：存 5 分钟，5 分钟内又用到就重新计时
+OUT_OF_STEPS = "（步数用完了，停下来了）"     # 转满 MAX_STEPS 圈还没做完时，run_agent 返回这句话
+WORKER_MARK = "·子智能体"                    # 用量记录里，子智能体的调用记在"派它的 Agent 的编号 + 这几个字"名下
+CACHE ={"type": "ephemeral"}       # 提示词缓存的标记：存 5 分钟，5 分钟内又用到就重新计时
 
 
 def call_model(bot, step, **request):
@@ -23,7 +25,12 @@ def call_model(bot, step, **request):
     """
     check_limit()
     start = time.time()
-    response = client.messages.create(model=MODEL, **request)
+    try:
+        response = client.messages.create(model=MODEL, **request)
+    except anthropic.APIStatusError as exc:
+        # 接口明确拒绝了这次请求：把它给的原因打在终端里再往上报。只看错误的名字查不出原因
+        print(f"【系统】模型接口拒绝了这次请求（{exc.status_code}）：{str(exc)[:400]}")
+        raise
     seconds = time.time() - start
     usage = response.usage
     read = getattr(usage, "cache_read_input_tokens", 0) or 0          # 从缓存里读的
@@ -54,12 +61,6 @@ def cache_marks(system):
     }
 
 
-def is_server_tool(tool):
-    """清单里的这一项，是不是"让模型那边的服务器去执行"的工具（比如 Claude 接口自带的搜索）。
-    我们自己的工具都带着参数说明 input_schema，服务器那边的没有。"""
-    return "input_schema" not in tool
-
-
 def note_server_tools(response):
     """服务器那边替我们执行的工具（搜索、读网页）不经过 execute_tool，没法事前记审计，
     只能事后记：回复里写着它搜了什么、读了哪个网址。"""
@@ -84,11 +85,6 @@ def execute_tool(ctx, block, allowed, approver, outside=False):
         result["is_error"] = True
         write_audit(block.name, block.input.get("path"), approval, False)
         return result
-    if guest_blocked(ctx, block.name, block.input):
-        result["content"] = "拒绝：现在是访客在说话，这件事只有用户本人说话时才能做。不要重试，告诉访客这件事要用户本人来说"
-        result["is_error"] = True
-        write_audit(block.name, block.input.get("path"), "访客不能用", False)
-        return result
     try:
         reason = approval_reason(ctx, block.name, block.input, outside)     # 不用问就是空的
         if reason:
@@ -105,13 +101,17 @@ def execute_tool(ctx, block, allowed, approver, outside=False):
     return result
 
 def run_agent(ctx, system, tools, messages, approver=ask_user):
-    if ctx.guest:
-        # 访客说话时，不给"服务器那边执行"的工具。它们不经过 execute_tool，那里的访客门禁拦不到，
-        # 唯一能拦的地方就是这里：不放进清单，模型就用不了。
-        tools = [tool for tool in tools if not is_server_tool(tool)]
+    """让一个 Agent 处理 messages 里最新的那句话：转圈调模型、用工具，直到它说完。返回它最后说的话。
+
+    注意：一段对话从头到尾，tools 和 system 都不能变。模型的回复里带着思考记录（thinking 块），
+    接口规定它只能在"产生它时的那份工具清单和提示词"下发回去，变了就拒绝整个请求（400）。
+    以前访客说话时会从清单里拿掉几个工具，就撞上了这一条，经过记在 docs/bugs/ 里。
+    以后要给某个人开关能力，做法是让这个会话重新开始（像 /packs 那样），不要中途改清单。
+    """
+    who = ctx.bot_id + WORKER_MARK if ctx.worker else ctx.bot_id      # 记用量时写谁：子智能体的单独记，好看出派单花了多少
     for step in range(MAX_STEPS):
         response = call_model(
-            ctx.bot_id, step + 1,
+            who, step + 1,
             max_tokens=4096,
             tools=tools,
             messages=messages,
@@ -146,4 +146,4 @@ def run_agent(ctx, system, tools, messages, approver=ask_user):
             results.append(result)
         messages.append({"role": "user", "content": results})
 
-    return "（步数用完了，停下来了）"
+    return OUT_OF_STEPS

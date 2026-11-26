@@ -8,6 +8,9 @@ from agents.prompt.texts import prompt_text
 #      （规则在 gate.py）。这一条是代码保证的，不靠模型自觉。
 
 WEB_TOOLS = ("web_search", "web_fetch")
+# 派单（dispatch）也算：子智能体可能去搜、去读网页，它的汇报里可能带着网页里的话。
+# 这里不去分辨它到底读没读，只要派过单就算，宁可多问一次。
+OUTSIDE_TOOLS = WEB_TOOLS + ("dispatch",)
 # 让模型那边的服务器去搜、去读时，结果是这几种块，直接出现在模型的回复里
 SERVER_RESULTS = ("web_search_tool_result", "web_fetch_tool_result")
 OPEN, CLOSE = "【外部内容开始】", "【外部内容结束】"
@@ -30,7 +33,7 @@ def field(block, name):
 
 
 def has_outside(messages):
-    """这段对话里有没有读过外面的内容：用过搜索、读网页的工具（不管是我们自己的，还是服务器那边的）。"""
+    """这段对话里有没有读过外面的内容：用过搜索、读网页的工具（不管是我们自己的，还是服务器那边的），或者派过子智能体。"""
     for message in messages:
         content = message.get("content")
         if isinstance(content, str):
@@ -39,7 +42,7 @@ def has_outside(messages):
             kind = field(block, "type")
             if kind in SERVER_RESULTS:
                 return True
-            if kind in ("tool_use", "server_tool_use") and field(block, "name") in WEB_TOOLS:
+            if kind in ("tool_use", "server_tool_use") and field(block, "name") in OUTSIDE_TOOLS:
                 return True
     return False
 

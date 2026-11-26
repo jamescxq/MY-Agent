@@ -1,27 +1,20 @@
 from agents.permission.guard import safe_path
 
-# 访客在说话的时候，只有这几个工具能用。现有的工具都在里面（用户 2026-11-18 决定放开改文件和发通知）。
-# 用"允许名单"而不是"禁止名单"：以后新加的工具（浏览器、邮件）默认访客用不了，要给访客用就加到这里。
-GUEST_TOOLS = ("get_time", "read_file", "list_file", "write_file", "edit_file", "notify")
-
-# 有的工具能做好几件事，访客只能做其中几件。写法：工具名 → 访客能用的动作（看参数里的 action）。
-# 定时提醒（用户 2026-11-24 定的）：访客可以查看、删除，不用问；不能新定。
-# 起因：二牛按用户的要求给一位访客定了 13 条叫起床的提醒，访客想取消却被拦住了。被提醒打扰的人要能自己停掉。
-GUEST_ACTIONS = {"schedule": ("list", "delete")}
-
-def guest_blocked(ctx, name, args=None):
-    """现在是访客在说话，而且这次调用访客不能做，就返回 True。args 是这次调用的参数。"""
-    if not ctx.guest:
-        return False
-    if name in GUEST_ACTIONS:
-        return (args or {}).get("action") not in GUEST_ACTIONS[name]
-    return name not in GUEST_TOOLS
+# 访客能用哪些工具：和用户本人一样（用户 2026-11-26 定的，理由是"人是我邀请的"）。
+# 以前这里有一份访客的允许名单（搜索、派单、定提醒、新建 Agent 访客都用不了），现在没有了。
+# 访客和用户本人还不一样的只剩下面几处，都不是"能不能用这个工具"，而是保护用户已有的东西：
+#   1. 访客让改、让删已有的内容，或者让新建 Agent，要用户点头（下面的 approval_reason）
+#   2. 访客碰不到别的访客的文件夹（guard.py）
+#   3. 斜杠命令只有用户能用（入口里判断）
+# 以后想给某位访客单独开关能力（计划做在网页管理台里），在这里加回判断；注意改了以后要让会话重新开始，原因见 loop.py 的 run_agent。
 
 # 一段对话里读过外面的内容（网页、搜索结果）以后，还能不问就用的工具：只读的这几个。
 # 用"允许名单"：以后新加的工具，在读过外面内容的对话里默认要先问用户。
-SAFE_AFTER_OUTSIDE = ("get_time", "read_file", "list_file", "web_search", "web_fetch")
+# dispatch（派子智能体）也在里面：子智能体只能查不能改，和接着搜、接着读网页是一回事。
+SAFE_AFTER_OUTSIDE = ("get_time", "read_file", "list_file", "web_search", "web_fetch", "dispatch")
 OUTSIDE_REASON = "这段对话里读过外面的内容（网页或搜索结果），里面可能藏着指令"
 GUEST_REASON = "是访客让改已有的内容"
+GUEST_CREATE_REASON = "是访客让新建 Agent"
 
 def approval_reason(ctx, name, args, outside=False):
     """这次工具调用为什么要先问用户。不用问就返回空字符串。
@@ -30,7 +23,8 @@ def approval_reason(ctx, name, args, outside=False):
 
     1. 读过外面的内容以后，要做会留下东西的事（改文件、发通知、定提醒、新建 Agent）。
        网页里可能藏着"把记忆清空"这类指令，模型万一照做了，这一问能拦住。只读的操作不问。
-    2. 访客说话时，改或删已有的内容、把已有的文件整个覆盖掉。新建、往末尾追加不问。
+    2. 访客说话时，改或删已有的内容、把已有的文件整个覆盖掉。新建文件、往末尾追加不问。
+    3. 访客说话时，让新建一个 Agent。新建的 Agent 会一直留在用户的花名册里，所以要用户点头。
 
     除此以外，用户自己说话时现有的工具都不用问（用户 2026-11-18 定的；工作区每次对话后有 git 备份，能找回）。
     以后加了删文件、提交网申、发邮件这类工具，在这里加上"要问"。
@@ -38,9 +32,11 @@ def approval_reason(ctx, name, args, outside=False):
     if outside and name not in SAFE_AFTER_OUTSIDE:
         if not (name == "schedule" and args.get("action") == "list"):      # 只是看一眼定了哪些，不算
             return OUTSIDE_REASON
-    if name not in ("write_file", "edit_file"):
-        return ""
     if not ctx.guest:
+        return ""
+    if name == "create_agent":
+        return GUEST_CREATE_REASON
+    if name not in ("write_file", "edit_file"):
         return ""
     if name == "edit_file" and args.get("old_text", "") == "":
         return ""
@@ -69,6 +65,8 @@ def describe(name, args):
         return f"往飞书发一条通知：“{short(args.get('text', ''))}”"
     if name == "create_agent":
         return f"新建一个叫「{args.get('name', '')}」的 Agent"
+    if name == "dispatch":
+        return f"派一个子智能体去做：“{short(args.get('task', ''))}”"
     if name == "schedule":
         if args.get("action") == "delete":
             return f"删掉 {args.get('id')} 号定时提醒"
@@ -111,9 +109,9 @@ if __name__ == "__main__":
     print(approval_reason(ctx, "notify", {"text": "x"}, outside=True))              # 应该：这段对话里读过外面的内容……
     print(describe("notify", {"text": "到点了"}), "|", describe("schedule", {"action": "delete", "id": 3}), "|", describe("create_agent", {"name": "旺财"}))
 
-    print(guest_blocked(ctx, "schedule", {"action": "create"}))         # 应该：False，用户说话时什么都不拦
-    print(guest_blocked(visiting, "read_file", {"path": "MEMORY.md"}))  # 应该：False，在允许名单里
-    print(guest_blocked(visiting, "create_agent", {"name": "x"}))       # 应该：True，不在允许名单里
-    print(guest_blocked(visiting, "schedule", {"action": "create"}))    # 应该：True，访客不能新定提醒
-    print(guest_blocked(visiting, "schedule", {"action": "list"}))      # 应该：False，访客可以看
-    print(guest_blocked(visiting, "schedule", {"action": "delete", "id": 1}))   # 应该：False，访客可以删
+    # 访客能用的工具和用户一样；只有让新建 Agent 要用户点头
+    print(need_approval(visiting, "create_agent", {"name": "x"}))       # 应该：True，访客让新建 Agent 要问
+    print(need_approval(ctx, "create_agent", {"name": "x"}))            # 应该：False，用户自己让建不用问
+    print(need_approval(visiting, "schedule", {"action": "create"}))    # 应该：False，访客可以定提醒
+    print(need_approval(visiting, "web_search", {"query": "x"}))        # 应该：False，访客可以搜索
+    print(need_approval(visiting, "dispatch", {"task": "x"}))           # 应该：False，访客可以让派单
