@@ -4,26 +4,54 @@ from config import MODEL
 from agents.tools import TOOL_FUNCTIONS
 from agents.permission import approval_reason, ask_user, guest_blocked
 from agents.permission.taint import has_outside
-from agents.audit import write_audit, write_trace
+from agents.audit import write_audit, write_trace, check_limit
+from agents.models import vendor
 
 client = anthropic.Anthropic(
     max_retries=2,
     timeout=300.0,
 )
 MAX_STEPS = 10
+CACHE = {"type": "ephemeral"}       # 提示词缓存的标记：存 5 分钟，5 分钟内又用到就重新计时
 
 
 def call_model(bot, step, **request):
     """调一次模型，顺手记一行用量。所有调模型的地方都走这里，这样不会有哪次漏记。
 
     bot、step 只用来记账：谁调的、第几步。request 是原样交给模型的那些参数（system、messages……）。
+    调之前先看今天的用量到没到上限，到了就抛出 OverLimit，不调（见 agents/audit/budget.py）。
     """
+    check_limit()
     start = time.time()
     response = client.messages.create(model=MODEL, **request)
     seconds = time.time() - start
-    write_trace(bot, step, response.usage.input_tokens, response.usage.output_tokens, seconds)
-    print("【调试】发了", response.usage.input_tokens, "个 token，回了", response.usage.output_tokens, "个，用了", round(seconds, 2), "秒")
+    usage = response.usage
+    read = getattr(usage, "cache_read_input_tokens", 0) or 0          # 从缓存里读的
+    write = getattr(usage, "cache_creation_input_tokens", 0) or 0     # 这一次新存进缓存的
+    sent = usage.input_tokens + read + write        # 接口报的 input_tokens 只是"没走缓存的那部分"，三个加起来才是一共发了多少
+    write_trace(bot, step, sent, usage.output_tokens, seconds, read, write)
+    print("【调试】发了", sent, "个 token（其中", read, "个从缓存读，", write, "个新存进缓存），回了", usage.output_tokens, "个，用了", round(seconds, 2), "秒")
     return response
+
+
+def cache_marks(system):
+    """给请求加上"提示词缓存"的标记，返回要放进请求里的那几项。
+
+    每次调模型都要把工具清单、提示词、整段对话重发一遍。加了标记以后，接口那边会把"和上次一模一样的开头"
+    存起来，下次只按很低的价钱算。标记有两个：
+      1. 加在提示词的最后：工具清单和提示词是固定的那一大段，存一次，之后每次调用都能读到。
+      2. 写在请求的最外层：接口自己把它放在对话的最后，对话变长它跟着往后挪。
+         这样用工具时的第二次调用，能读到第一次调用发过的全部内容。
+    只要开头有一个字不一样（工具换了、提示词改了），从那里往后就都读不到缓存，要重新存。
+
+    这家接口不认这个标记（见 agents/models/），或者提示词是空的，就不加。
+    """
+    if not system or not vendor().CACHE_MARKS:
+        return {"system": system}
+    return {
+        "system": [{"type": "text", "text": system, "cache_control": CACHE}],
+        "cache_control": CACHE,
+    }
 
 
 def is_server_tool(tool):
@@ -85,9 +113,9 @@ def run_agent(ctx, system, tools, messages, approver=ask_user):
         response = call_model(
             ctx.bot_id, step + 1,
             max_tokens=4096,
-            system=system,
             tools=tools,
             messages=messages,
+            **cache_marks(system),          # system 在这里面，带着缓存标记
         )
         print("【调试】第", step + 1, "次调用，stop_reason:", response.stop_reason)
         has_tool = any(block.type == "tool_use" for block in response.content)

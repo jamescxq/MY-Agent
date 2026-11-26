@@ -33,6 +33,7 @@ from agents.bots import all_bots, get_bot, ctx_for, handle_session_command, ensu
 from agents.prompt.builder import assemble_prompt, get_agent_name
 from agents.prompt.texts import prompt_text
 from agents.loop import run_agent
+from agents.audit import OverLimit
 from agents.permission import describe
 from agents.capabilities import tools_for
 from agents.memory import write_daily, backup_workspace
@@ -291,8 +292,8 @@ def run(member, content, chat_id, guest_id="", note=None, scheduled=False):
     messages.append({"role": "user", "content": content})
     try:
         reply = run_agent(ctx, member.system, member.tools, messages, approver=make_approver(chat_id, member.name))
-    except anthropic.APIError:
-        del messages[before:]      # 这一轮没做成，从历史里拿掉，下次重新来
+    except (anthropic.APIError, OverLimit):
+        del messages[before:]      # 这一轮没做成（接口出错，或者今天用量到上限了），从历史里拿掉，下次重新来
         raise
     if reply.strip().startswith(NO_REPLY):
         write_daily(member.ctx, note or content, "（没有回复）")
@@ -322,6 +323,9 @@ def welcome(chat_id, newcomers):
         except anthropic.APIError as exc:
             print(f"【系统】模型接口异常：{type(exc).__name__}")
             send(chat_id, f"「{member.name}」的招呼没发出来（模型接口出错）。直接和它说话就行。")
+        except OverLimit as exc:
+            send(chat_id, f"「{member.name}」的招呼没发出来：{exc}")
+            break                          # 后面的也发不出来，不用一个个试
     backup_workspace("飞书对话后自动备份")
 
 
@@ -392,6 +396,11 @@ def handle(chat_id, text, guest=None, mentioned=()):
         print(f"【系统】模型接口异常：{type(exc).__name__}")
         take_newcomers()                   # 这一轮没做完，就算建了也不在这里拉人，用户可以 /join
         return "模型接口出错了，这条我没处理完。过一会儿再发一次。"
+    except OverLimit as exc:
+        # 今天的用量到上限了：不管有几个成员，只说这一句（代码发的，不调模型）
+        print(f"【系统】{exc}")
+        take_newcomers()
+        return str(exc)
 
     # 这一轮里有 Agent 用工具新建了别的 Agent（用户说"帮我建一个……"）：让新来的进这个会话，先开口
     created = take_newcomers()
@@ -428,6 +437,10 @@ def remind(row):
     except anthropic.APIError as exc:
         print(f"【系统】模型接口异常：{type(exc).__name__}")
         send(chat_id, f"【定时提醒】{row['task']}\n（{member.name}这次没接上模型，原话转给你。）")
+    except OverLimit:
+        # 提醒不能因为用量到上限就丢了：不调模型，代码把原话送到
+        print("【系统】今天的用量到上限了，提醒按原话转发")
+        send(chat_id, f"【定时提醒】{row['task']}\n（今天的用量到上限了，{member.name}没法开口，原话转给你。）")
     backup_workspace("定时提醒后自动备份")
 
 

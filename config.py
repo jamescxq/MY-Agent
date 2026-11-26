@@ -26,6 +26,8 @@ SEARCH_KEYS = {                                        # 各家搜索服务的�
     "bocha": os.getenv("BOCHA_API_KEY", ""),
 }
 MODEL = os.getenv("MODEL", "claude-opus-5-5")
+# 每天最多用多少 token（发的加上回的）。到了就不再调模型，告诉用户，第二天自动恢复。0 表示不限。见 agents/audit/budget.py
+DAILY_TOKEN_LIMIT = int(os.getenv("DAILY_TOKEN_LIMIT", "2000000"))
 FEISHU_WEBHOOK = os.getenv("FEISHU_WEBHOOK")
 FEISHU_APP_ID = os.getenv("FEISHU_APP_ID")
 FEISHU_APP_SECRET = os.getenv("FEISHU_APP_SECRET")

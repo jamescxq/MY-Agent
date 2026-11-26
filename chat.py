@@ -3,6 +3,7 @@ import anthropic
 from agents.bots import main_ctx, ctx_for, get_bot, handle_command, opening_for, take_newcomers, OPENING_NOTE
 from agents.prompt.builder import build_system_prompt, assemble_prompt, get_agent_name
 from agents.loop import run_agent
+from agents.audit import OverLimit
 from agents.capabilities import tools_for
 from agents.memory import write_daily, backup_workspace
 from agents.context import trim_messages
@@ -118,6 +119,10 @@ while True:
 
     except anthropic.APIError as exc:
         print(f"【系统】模型接口异常：{type(exc).__name__}")
+        pending_retry = True
+
+    except OverLimit as exc:
+        print(f"【系统】{exc}")       # 今天的用量到上限了：这一句没有调模型
         pending_retry = True
     else:
         pending_retry = False

@@ -54,9 +54,10 @@ def make_agent(root, files, is_main=True, packs=()):
 USED = []      # 评测里每调一次模型记一行（在 main 里接上）。只在内存里，不写进平时聊天的那份 trace.jsonl
 
 
-def note_usage(bot, step, input_tokens, output_tokens, seconds):
-    """评测时顶替 write_trace：同样的五个数，记进上面的列表。"""
-    USED.append({"bot": bot, "step": step, "input_tokens": input_tokens, "output_tokens": output_tokens, "seconds": seconds})
+def note_usage(bot, step, input_tokens, output_tokens, seconds, cache_read=0, cache_write=0):
+    """评测时顶替 write_trace：同样的几个数，记进上面的列表。"""
+    USED.append({"bot": bot, "step": step, "input_tokens": input_tokens, "output_tokens": output_tokens, "seconds": seconds,
+                 "cache_read": cache_read, "cache_write": cache_write})
 
 
 def usage_text(rows, runs=1):
@@ -65,7 +66,8 @@ def usage_text(rows, runs=1):
     sent = sum(row["input_tokens"] for row in rows) / runs
     got = sum(row["output_tokens"] for row in rows) / runs
     seconds = sum(row["seconds"] for row in rows) / runs
-    return f"调模型 {calls:g} 次，发 {sent:.0f}、回 {got:.0f} 个 token，模型用时 {seconds:.1f} 秒"
+    read = sum(row.get("cache_read", 0) for row in rows) / runs
+    return f"调模型 {calls:g} 次，发 {sent:.0f}（其中 {read:.0f} 从缓存读）、回 {got:.0f} 个 token，模型用时 {seconds:.1f} 秒"
 
 
 def tools_called(messages):
@@ -156,6 +158,8 @@ def main():
     loop.write_audit = lambda *record: None
     # 用量记录也不写进平时聊天的那份，改成记在上面的 USED 里，跑完报出来
     loop.write_trace = note_usage
+    # 评测不受每天用量上限管：是人手动跑的，用量在上面报出来了
+    loop.check_limit = lambda: None
     # 评测里不真的往飞书发通知：换成一个只回答"已发送"的假工具
     TOOL_FUNCTIONS["notify"] = lambda ctx, text: "已发送（评测里没有真的发）"
 

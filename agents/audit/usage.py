@@ -33,11 +33,13 @@ def summarize(rows):
     """
     result = {}
     for row in rows:
-        one = result.setdefault(row["bot"], {"turns": 0, "calls": 0, "input": 0, "output": 0, "seconds": 0.0, "slowest": 0.0})
+        one = result.setdefault(row["bot"], {"turns": 0, "calls": 0, "input": 0, "output": 0, "seconds": 0.0, "slowest": 0.0, "cache_read": 0, "cache_write": 0})
         one["calls"] += 1
         if row["step"] == 1:
             one["turns"] += 1
         one["input"] += row["input_tokens"]
+        one["cache_read"] += row.get("cache_read", 0)       # 做缓存之前记的旧行没有这两项，当成 0
+        one["cache_write"] += row.get("cache_write", 0)
         one["output"] += row["output_tokens"]
         one["seconds"] += row["seconds"]
         one["slowest"] = max(one["slowest"], row["seconds"])
@@ -53,6 +55,7 @@ def report(rows):
         lines.append(
             f"  {bot}：{one['turns']} 轮，调模型 {one['calls']} 次（平均每轮 {one['calls'] / max(one['turns'], 1):.1f} 次）；"
             f"发 {one['input']}、回 {one['output']} 个 token（平均每次发 {one['input'] // one['calls']}）；"
+            f"发的里面 {one['cache_read']} 个是从缓存读的（占 {one['cache_read'] * 100 // max(one['input'], 1)}%），{one['cache_write']} 个是新存进缓存的；"
             f"平均每次 {one['seconds'] / one['calls']:.2f} 秒，最慢 {one['slowest']:.2f} 秒"
         )
     return "\n".join(lines)
