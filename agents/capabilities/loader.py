@@ -27,6 +27,7 @@ class Pack:
     tools: list = field(default_factory=list)   # 这个能力带来哪些工具
     available: bool = False       # 接好了没有。False 就是"还没接入"
     always: bool = False          # True 表示每个 Agent 都有，不能关
+    rule: str = ""                # 用这个能力时要守的规矩。启用了才拼进提示词；只是提醒，靠模型听
 
 
 def read_header(text):
@@ -58,6 +59,7 @@ def load_packs(folder=PACKS_DIR):
             tools=[name.strip() for name in header.get("tools", "").split(",") if name.strip()],
             available=header.get("status") == "可用",
             always=header.get("always") == "是",
+            rule=header.get("rule", ""),
         ))
     packs.sort(key=lambda pack: (not pack.always, not pack.available))
     return packs
@@ -120,6 +122,8 @@ def capability_text(ctx):
             missing.append(line)
         elif pack.id in ctx.packs:
             on.append(line + f"（工具：{'、'.join(pack.tools)}）")
+            if pack.rule:
+                on.append(f"  用它时的规矩：{pack.rule}")
         else:
             off.append(line)
 
